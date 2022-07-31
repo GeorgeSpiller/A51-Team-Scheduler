@@ -1,0 +1,4 @@
+# ignore ALL .json and .txt files
+*.json
+*.txt
+*.lock
