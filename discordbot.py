@@ -18,7 +18,7 @@ LAST_UPDATED_STRING = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LA
 
 ALLOWED_SERVERS = [714774324174782534, 743968283006337116, 999094760750981221]
 SCHEDULE_CHANNEL_ID = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
-BOTCOMMANDS_ALLOWED_CHANNELS = [1001915039386701965, 714774324174782537] #A51BOTTEST, TESTSERVERGENERAL
+BOTCOMMANDS_ALLOWED_CHANNELS = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
 PROTECTED_COMMANDS_ALLOWED_ROLES = ['manager', 'Team Manager']
 
 PREVIOUS_SCHEDULE_STRING = ''
@@ -31,9 +31,15 @@ def replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
         Also removes any roles that are between ~~strikethrough~~ tags'''
     # fist, get a list of all the ID's in the message
+    # remove any ID's tht are between ~~strikethrough~~ tags
+    strikethroughs = re.findall('~~<@&\d{18}>\d*.*~~', message)
+    if strikethroughs:
+        for s in strikethroughs:
+            message = message.replace(s, '')
+
+    # replace all ids with team names
     rids = re.findall('<@&\d{18}>', message)
     rids = [i.replace('<@&', '').replace('>', '') for i in rids]
-
 
     # Get each IDs name, and replace
     ret = message
@@ -54,11 +60,12 @@ async def on_ready():
             if textChannel.id == SCHEDULE_CHANNEL_ID:
                 messageList = []
                 async for message in textChannel.history(limit=PREVIOUS_SCHEDULE_LOOKBACK):
-                        messageList.append(message.content)
-                        PREVIOUS_SCHEDULE_STRING = '-----------------------------------------'.join(messageList)
-                        PREVIOUS_SCHEDULE_STRING = replace_roleid_with_rolename(PREVIOUS_SCHEDULE_STRING, guild)
-                        with open(PREVIOUS_SCHEDULES_TEXTFILE, 'w') as f:
-                            f.write(PREVIOUS_SCHEDULE_STRING)
+                    messageList.append(message.content)
+                messageList.reverse()
+                PREVIOUS_SCHEDULE_STRING = '-----------------------------------------'.join(messageList)
+                PREVIOUS_SCHEDULE_STRING = replace_roleid_with_rolename(PREVIOUS_SCHEDULE_STRING, guild)
+                with open(PREVIOUS_SCHEDULES_TEXTFILE, 'w') as f:
+                    f.write(PREVIOUS_SCHEDULE_STRING)
                 break
         print(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:

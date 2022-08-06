@@ -266,6 +266,12 @@ def get_schedule(teams):
             if data == True and type(data) == bool: # for each day that team scrims
                 if (len(final_order[i-1]) <=2):     # if there is room on the final list to add them as a sub, add them
                     final_order[i-1].append(remainingTeams[j][0])
+    # Make sure that there is at least some text to place as a sub, if there are no available sub teams
+    for i, teams in enumerate(final_order): # for all teams in the final order
+        if len(teams) == 1: # if there are no entries for any subs, append 'no subs'
+            final_order[i].append("No sub")
+
+
     JSON_DUMP_OBJECT["Future Schedule"] = final_order
     return final_order
    
