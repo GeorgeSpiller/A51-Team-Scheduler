@@ -1,35 +1,35 @@
 import json
 import re
+from os import getcwd
 from discord.ext import commands
 from discord import Embed, Color
 from datetime import timedelta, date, datetime
 from main import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
 
 # firstly, load data
-TEAM_SCHEDULE_INFO_JSONFILE = 'D:\\Users\\geosp\\Documents\\Code\\PY\\Projects\\A51 Team Scheduler\\ScheduleInfo.json'
+TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\ScheduleInfo.json'
 with open(TEAM_SCHEDULE_INFO_JSONFILE, 'r') as f:
     data = json.load(f)   
 
-DISCORD_BOT_TOKEN_TEXTFILE = 'D:\\Users\\geosp\\Documents\\Code\\PY\\Projects\\A51 Team Scheduler\\diecordbottoken.txt'
+DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\diecordbottoken.txt'
 with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
     token = f.readline() 
 
-LAST_UPDATED_DATE = datetime.strptime(data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
-LAST_UPDATED_STRING = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
-
-ARENA51_GUILD_ID = 743968283006337116
-ALLOWED_SERVERS = [714774324174782534, 743968283006337116, 999094760750981221]
-SCHEDULE_CHANNEL_ID = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
-CASTERSIGNUP_CHANNEL_ID = 810799071232393216 # A51: 810799071232393216
-BOTCOMMANDS_ALLOWED_CHANNELS = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
-PROTECTED_COMMANDS_ALLOWED_ROLES = ['manager', 'Team Manager']
-
-PREVIOUS_SCHEDULE_STRING = ''
-PREVIOUS_SCHEDULE_LOOKBACK = 2
+LAST_UPDATED_DATE                   = datetime.strptime(data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
+LAST_UPDATED_STRING                 = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
+ARENA51_GUILD_ID                    = 743968283006337116
+ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 999094760750981221]
+SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
+CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
+BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
+PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'Team Manager']
+PREVIOUS_SCHEDULE_STRING            = ''
+PREVIOUS_SCHEDULE_LOOKBACK          = 2
 
 client = commands.Bot(command_prefix='!')
 
 # TODO: catch discord.ext.commands.errors.MissingRequiredArgument exception and provide arg info for arg commands
+# TODO: Change cotm to fetch only message history in a cirtain time frame
 
 def replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
@@ -55,17 +55,12 @@ def replace_roleid_with_rolename(message, guild):
     return ret
 
 
-async def replace_userid_with_username(id_string):
-    currentID = ''
-    idlist = id_string.split()
-    print(f'processing userid string: {id_string}')
-    for i, id in enumerate(idlist):
-        currentID = int(id.replace('<', '').replace('>', '').replace('@', ''))
-        idlist[i] = await client.fetch_user(int(currentID))
-        idlist[i] = idlist[i].name
-
-    return ' '.join(idlist)
-
+async def count_total_casts(userID):
+    counter = 0
+    async for message in client.get_channel(CASTERSIGNUP_CHANNEL_ID).history(limit=None):
+        if str(userID) in message.content:
+            counter += 1
+    return counter
 
 def build_embed(tupledata):
     cotm_prod, full_month_name, prefix, verb = tupledata
@@ -89,11 +84,10 @@ def build_embed(tupledata):
     inline=True)
 
     embed.add_field(name=f"Total {verb}", 
-    value=f"Has {verb} ## time total, thats ## mins live!", 
+    value=f"Has {verb} {cotm_prod[2]} times total, thats ## mins live!", 
     inline=True)
 
     return embed
-
 
 
 @client.event
@@ -295,25 +289,29 @@ async def casterofthemonth(ctx, arg):
                     broadcasterDict = {}
                     winnerData = []
                     embed = None
+                    winnerUser = None
 
                     if arg == "prod":
                         for entry in producers:
                             broadcasterDict[entry] = producers.count(entry)
-                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
                         embed = build_embed( (winnerData, full_month_name, "Producer", "Producing") )
                         await ctx.send(embed=embed)
 
                     elif arg == "pbp":
                         for entry in caster_pbp:
                             broadcasterDict[entry] = caster_pbp.count(entry)
-                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
                         embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casting") )
                         await ctx.send(embed=embed)
                     
                     elif arg == "col":
                         for entry in caster_col:
                             broadcasterDict[entry] = caster_col.count(entry)
-                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
                         embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casting") )
                         await ctx.send(embed=embed)
                     
