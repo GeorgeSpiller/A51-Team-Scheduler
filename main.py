@@ -2,15 +2,7 @@ from gspread import service_account
 from gspread_formatting import get_user_entered_format
 from datetime import timedelta, date, datetime
 from json import dumps
-
-# ----- difine constants -----
-# Create the service account from the json private key, allowing use access to the teams spreadsheet
-SERVICE_ACCOUNT = service_account(filename='plasma-respect-323910-617fd6c81027.json')
-SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1n-W6oyEv4HehYN3gYcUVk7dOJQUP_Y70L7AN_Sp8Lgo/edit#gid=2043552790'
-SPREADSHEET = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_URL)
-WORKSHEET = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
-WORKSHEET_AVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
-WORKSHEET_NOTAVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
+from os import getcwd
 
 
 def cellFormat_to_color(cellformatstring):
@@ -33,13 +25,23 @@ def cellFormat_to_color(cellformatstring):
         return backgroundcolor
     return None
 
+
+# ----- difine constants -----
+# Create the service account from the json private key, allowing use access to the teams spreadsheet
+SERVICE_ACCOUNT = service_account(filename='plasma-respect-323910-617fd6c81027.json')
+SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1n-W6oyEv4HehYN3gYcUVk7dOJQUP_Y70L7AN_Sp8Lgo/edit#gid=2043552790'
+SPREADSHEET = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_URL)
+WORKSHEET = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
+WORKSHEET_AVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
+WORKSHEET_NOTAVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
+
 # use the constant cells in the sheets key to deturmine what the format for avaliable and not available is
 AVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_AVAILABLE_CELLFORMAT))
 NOTAVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_NOTAVAILABLE_CELLFORMAT))
 # used to store the previous stream schedules. This would be the scraped discord message(s) as a string  
-PREVIOUS_SCHEDULES_TEXTFILE = 'D:\\Users\\geosp\\Documents\\Code\\PY\\Projects\\A51 Team Scheduler\\previousSchedules.txt'
+PREVIOUS_SCHEDULES_TEXTFILE = f'{getcwd()}\\previousSchedules.txt'
 # used to store information about teams ad scheduleing. This is what the discord bot reads and relays to users
-TEAM_SCHEDULE_INFO_JSONFILE = 'D:\\Users\\geosp\\Documents\\Code\\PY\\Projects\\A51 Team Scheduler\\ScheduleInfo.json'
+TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\ScheduleInfo.json'
 JSON_DUMP_OBJECT = {  }
 
 
@@ -47,7 +49,6 @@ JSON_DUMP_OBJECT = {  }
 '''
 Note:
     1. All hardcoded ranges and cells (eg, WORKSHEET_AVAILABLE_CELLFORMAT, or thoes in get_teams()) are protected on the google sheet, meaning they cannot be changed.
-
 '''
 
 
@@ -346,7 +347,7 @@ def main():
 
 if __name__ == '__main__':
     print(main())
-    
+
     
 
 
