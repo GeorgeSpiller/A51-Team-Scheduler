@@ -25,6 +25,8 @@ BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 
 PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'Team Manager']
 PREVIOUS_SCHEDULE_STRING            = ''
 PREVIOUS_SCHEDULE_LOOKBACK          = 2
+STREAM_RUNTIME_HOURS                = 3
+STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
 
 client = commands.Bot(command_prefix='!')
 
@@ -67,7 +69,7 @@ def build_embed(tupledata):
 
     # embed the information
     embed=Embed(
-        title=f"{prefix} of the month,  {full_month_name}", 
+        title=f"{full_month_name}'s {prefix} of the month!", 
         description=f"{cotm_prod[0].display_name} (aka {cotm_prod[0].name})", 
         color=Color.blue())
 
@@ -80,11 +82,11 @@ def build_embed(tupledata):
     )
 
     embed.add_field(name=f"{verb}", 
-    value=f"{cotm_prod[1]} {verb} last month.", 
+    value=f"{verb} {cotm_prod[1]} times last month.", 
     inline=True)
 
     embed.add_field(name=f"Total {verb}", 
-    value=f"Has {verb} {cotm_prod[2]} times total, thats ## mins live!", 
+    value=f"Has {verb} {cotm_prod[2]} times total, thats ~{(int(cotm_prod[2]) * STREAM_RUNTIME_HOURS):,} hours, or ~{(int(cotm_prod[2]) * STREAM_RUNTIME_MINS):,} mins live!", 
     inline=True)
 
     return embed
@@ -296,7 +298,7 @@ async def casterofthemonth(ctx, arg):
                             broadcasterDict[entry] = producers.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
                         winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
-                        embed = build_embed( (winnerData, full_month_name, "Producer", "Producing") )
+                        embed = build_embed( (winnerData, full_month_name, "Producer", "Produced") )
                         await ctx.send(embed=embed)
 
                     elif arg == "pbp":
@@ -304,7 +306,7 @@ async def casterofthemonth(ctx, arg):
                             broadcasterDict[entry] = caster_pbp.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
                         winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
-                        embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casting") )
+                        embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casted") )
                         await ctx.send(embed=embed)
                     
                     elif arg == "col":
@@ -312,7 +314,7 @@ async def casterofthemonth(ctx, arg):
                             broadcasterDict[entry] = caster_col.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
                         winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
-                        embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casting") )
+                        embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casted") )
                         await ctx.send(embed=embed)
                     
         if not is_allowed:
