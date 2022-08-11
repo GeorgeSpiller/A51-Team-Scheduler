@@ -1,6 +1,7 @@
 import json
 import re
 from discord.ext import commands
+from discord import Embed, Color
 from datetime import timedelta, date, datetime
 from main import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
 
@@ -16,8 +17,10 @@ with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
 LAST_UPDATED_DATE = datetime.strptime(data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
 LAST_UPDATED_STRING = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
 
+ARENA51_GUILD_ID = 743968283006337116
 ALLOWED_SERVERS = [714774324174782534, 743968283006337116, 999094760750981221]
 SCHEDULE_CHANNEL_ID = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
+CASTERSIGNUP_CHANNEL_ID = 810799071232393216 # A51: 810799071232393216
 BOTCOMMANDS_ALLOWED_CHANNELS = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
 PROTECTED_COMMANDS_ALLOWED_ROLES = ['manager', 'Team Manager']
 
@@ -26,6 +29,7 @@ PREVIOUS_SCHEDULE_LOOKBACK = 2
 
 client = commands.Bot(command_prefix='!')
 
+# TODO: catch discord.ext.commands.errors.MissingRequiredArgument exception and provide arg info for arg commands
 
 def replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
@@ -49,6 +53,47 @@ def replace_roleid_with_rolename(message, guild):
             rid_name = role.name.replace(' ', '').upper()
             ret = ret.replace(rid, rid_name)
     return ret
+
+
+async def replace_userid_with_username(id_string):
+    currentID = ''
+    idlist = id_string.split()
+    print(f'processing userid string: {id_string}')
+    for i, id in enumerate(idlist):
+        currentID = int(id.replace('<', '').replace('>', '').replace('@', ''))
+        idlist[i] = await client.fetch_user(int(currentID))
+        idlist[i] = idlist[i].name
+
+    return ' '.join(idlist)
+
+
+def build_embed(tupledata):
+    cotm_prod, full_month_name, prefix, verb = tupledata
+
+    # embed the information
+    embed=Embed(
+        title=f"{prefix} of the month,  {full_month_name}", 
+        description=f"{cotm_prod[0].display_name} (aka {cotm_prod[0].name})", 
+        color=Color.blue())
+
+    embed.set_author(
+        name=cotm_prod[0].display_name, 
+        icon_url=cotm_prod[0].avatar_url)
+
+    embed.set_thumbnail(
+        url=cotm_prod[0].avatar_url
+    )
+
+    embed.add_field(name=f"{verb}", 
+    value=f"{cotm_prod[1]} {verb} last month.", 
+    inline=True)
+
+    embed.add_field(name=f"Total {verb}", 
+    value=f"Has {verb} ## time total, thats ## mins live!", 
+    inline=True)
+
+    return embed
+
 
 
 @client.event
@@ -203,4 +248,86 @@ async def generate(ctx):
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
     
 
+@client.command(
+    # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
+	help=f"Gives the caster of the month. Example: !cotm prod. Can only be used by {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}",
+	# ADDS THIS VALUE TO THE $HELP MESSAGE.
+	brief="Gives the caster of the month. Example: !cotm prod. Args: prod, pbp, col",
+    aliases=['cotm']
+)
+async def casterofthemonth(ctx, arg):
+    print(f'{ctx.author.name} sent command !casterofthemonth')
+    is_allowed = False
+    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        for role in PROTECTED_COMMANDS_ALLOWED_ROLES:
+            if role in [y.name.lower() for y in ctx.author.roles]:
+                is_allowed = True
+                if arg != "prod" and arg != "pbp" and arg != "col":
+                    await ctx.channel.send(f"Unrecognised argument ``{arg}``! Please use iether: ``prod``, ``pbp`` or ``col``.")
+                else:
+                    currentMonth = datetime.now().month
+                    lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
+                    
+                    producers = []
+                    caster_pbp = []
+                    caster_col = []
+                    caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
+                    async for message in caster_signup_channel.history(limit=45*2):   # 45 is the maximum amount of messages a month the bot that posts in this channel could post
+                        if message.created_at.month == lastMonth:
+                            if '@' in message.content:
+                                producer_search = ' '.join(re.findall('Production\/Observer\(🎥\): (<@\d{18}> ?)*', message.content))
+                                caster_pbp_search = ' '.join(re.findall('Play-By-Play\(🎙\): (<@\d{18}> ?)*', message.content))
+                                caster_col_search = ' '.join(re.findall('Colour\(🔬\): (<@\d{18}> ?)*', message.content))
+
+                                if producer_search:
+                                    producers.append(producer_search.replace('<', '').replace('>', '').replace('@', ''))
+                                
+                                if caster_pbp_search:
+                                    caster_pbp.append(caster_pbp_search.replace('<', '').replace('>', '').replace('@', ''))
+
+                                if caster_col_search:
+                                    caster_col.append(caster_col_search.replace('<', '').replace('>', '').replace('@', ''))
+
+                    # count the occurance of each name, based on which role was inout as an arg
+                    datetime_object = datetime.strptime(str(lastMonth), "%m")
+                    full_month_name = datetime_object.strftime("%B")
+
+                    broadcasterDict = {}
+                    winnerData = []
+                    embed = None
+
+                    if arg == "prod":
+                        for entry in producers:
+                            broadcasterDict[entry] = producers.count(entry)
+                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        embed = build_embed( (winnerData, full_month_name, "Producer", "Producing") )
+                        await ctx.send(embed=embed)
+
+                    elif arg == "pbp":
+                        for entry in caster_pbp:
+                            broadcasterDict[entry] = caster_pbp.count(entry)
+                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casting") )
+                        await ctx.send(embed=embed)
+                    
+                    elif arg == "col":
+                        for entry in caster_col:
+                            broadcasterDict[entry] = caster_col.count(entry)
+                        winnerData = [await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get))), broadcasterDict[max(broadcasterDict, key=broadcasterDict.get)]]
+                        embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casting") )
+                        await ctx.send(embed=embed)
+                    
+        if not is_allowed:
+            await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
+    
+
 client.run(token)
+
+
+
+
+
+
+
+
+
