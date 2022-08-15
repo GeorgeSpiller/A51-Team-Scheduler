@@ -4,7 +4,7 @@ from os import getcwd
 from discord.ext import commands
 from discord import Embed, Color, errors
 from datetime import timedelta, date, datetime
-from main import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
+from Schedule import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
 
 global glob_data
 global glob_tocken
@@ -13,11 +13,11 @@ global glob_tocken
 def load_data():
     global glob_data
     global glob_tocken
-    TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\ScheduleInfo.json'
+    TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\data\\ScheduleInfo.json'
     with open(TEAM_SCHEDULE_INFO_JSONFILE, 'r') as f:
         glob_data = json.load(f)   
 
-    DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\diecordbottoken.txt'
+    DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\auth\\diecordbottoken.txt'
     with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
         glob_tocken = f.readline() 
 
