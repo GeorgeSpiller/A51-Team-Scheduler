@@ -2,29 +2,39 @@ import json
 import re
 from os import getcwd
 from discord.ext import commands
-from discord import Embed, Color
+from discord import Embed, Color, errors
 from datetime import timedelta, date, datetime
 from main import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
 
+global glob_data
+global glob_tocken
+
 # firstly, load data
-TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\ScheduleInfo.json'
-with open(TEAM_SCHEDULE_INFO_JSONFILE, 'r') as f:
-    data = json.load(f)   
+def load_data():
+    global glob_data
+    global glob_tocken
+    TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\ScheduleInfo.json'
+    with open(TEAM_SCHEDULE_INFO_JSONFILE, 'r') as f:
+        glob_data = json.load(f)   
 
-DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\diecordbottoken.txt'
-with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
-    token = f.readline() 
+    DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\diecordbottoken.txt'
+    with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
+        glob_tocken = f.readline() 
 
-LAST_UPDATED_DATE                   = datetime.strptime(data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
+
+load_data()
+
+LAST_UPDATED_DATE                   = datetime.strptime(glob_data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
 LAST_UPDATED_STRING                 = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
 ARENA51_GUILD_ID                    = 743968283006337116
 ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 999094760750981221]
 SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
 CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
 BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
-PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'Team Manager']
+BROADCASTER_ROLES                   = ['caster_ow', 'observer_ow', 'producer']
+PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'team manager']
 PREVIOUS_SCHEDULE_STRING            = ''
-PREVIOUS_SCHEDULE_LOOKBACK          = 2
+PREVIOUS_SCHEDULE_LOOKBACK          = 4
 STREAM_RUNTIME_HOURS                = 3
 STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
 
@@ -32,6 +42,7 @@ client = commands.Bot(command_prefix='!')
 
 # TODO: catch discord.ext.commands.errors.MissingRequiredArgument exception and provide arg info for arg commands
 # TODO: Change cotm to fetch only message history in a cirtain time frame
+# TODO: !casterinfo counts duo prod/cast reacts for the same day as two different days for the stats.
 
 def replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
@@ -64,13 +75,14 @@ async def count_total_casts(userID):
             counter += 1
     return counter
 
+
 def build_embed(tupledata):
     cotm_prod, full_month_name, prefix, verb = tupledata
 
     # embed the information
     embed=Embed(
         title=f"{full_month_name}'s {prefix} of the month!", 
-        description=f"{cotm_prod[0].display_name} (aka {cotm_prod[0].name})", 
+        description=f"{cotm_prod[0].display_name} (aka {cotm_prod[0].name}#{cotm_prod[0].discriminator})", 
         color=Color.blue())
 
     embed.set_author(
@@ -92,6 +104,30 @@ def build_embed(tupledata):
     return embed
 
 
+def build_embed_nomonth(tupledata):
+    user, score = tupledata
+
+    # embed the information
+    embed=Embed(
+        title=f"{user.name} Broadcaster info:", 
+        description=f"{user.display_name} (aka {user.name}#{user.discriminator})", 
+        color=Color.blue())
+
+    embed.set_author(
+        name=user.display_name, 
+        icon_url=user.avatar_url)
+
+    embed.set_thumbnail(
+        url=user.avatar_url
+    )
+
+    embed.add_field(name=f"Total stats", 
+    value=f"Has Casted/Produced {score} times total, thats ~{(int(score) * STREAM_RUNTIME_HOURS):,} hours, or ~{(int(score) * STREAM_RUNTIME_MINS):,} mins live!", 
+    inline=False)
+
+    return embed
+
+
 @client.event
 async def on_ready():
     print('logged in as {0.user}'.format(client))
@@ -108,6 +144,7 @@ async def on_ready():
                 with open(PREVIOUS_SCHEDULES_TEXTFILE, 'w') as f:
                     f.write(PREVIOUS_SCHEDULE_STRING)
                 break
+        load_data()
         print(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:
             print(f'leaving server: {guild.name} ({guild.id})')
@@ -123,8 +160,10 @@ async def on_ready():
 )
 async def fullteams(ctx):
     print(f'{ctx.author.name} sent command !fullteams')
+    global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
-	    await ctx.channel.send(f"The full team list is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(data['Teams'])}```")
+	    await ctx.channel.send(f"The full team list is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(glob_data['Teams'])}```")
+
 
 @client.command(
     # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
@@ -135,9 +174,11 @@ async def fullteams(ctx):
 )
 async def activeteams(ctx):
     print(f'{ctx.author.name} sent command !activeteams')
+    global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
-	    await ctx.channel.send(f"The full list of teams that are currently on the stream schedule is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(data['Teams On Schedule'])}```")
-    
+	    await ctx.channel.send(f"The full list of teams that are currently on the stream schedule is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(glob_data['Teams On Schedule'])}```")
+
+
 @client.command(
     # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
 	help="Gives the stream priority for a team, for example: !teamscore platpack . The score is arbitary, that is it's not based on anything such as days, but rather is a guideline as to how likely you will beon the next schedule.",
@@ -147,20 +188,22 @@ async def activeteams(ctx):
 )
 async def teampriority(ctx, arg):
     print(f'{ctx.author.name} sent command !teampriority {arg}')
+    global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         userInputTeamName = arg.upper().strip()
-        if userInputTeamName in data['Teams']:
-            if userInputTeamName in data['Teams On Schedule']:
-                for team in data['TeamScore']:
+        if userInputTeamName in glob_data['Teams']:
+            if userInputTeamName in glob_data['Teams On Schedule']:
+                for team in glob_data['TeamScore']:
                     if team[0] == userInputTeamName:
-                        teams_in_future_schedule = [t[0] for t in data["Future Schedule"]]
+                        teams_in_future_schedule = [t[0] for t in glob_data["Future Schedule"]]
                         is_on_future_schedule = "likely" if team[0] in teams_in_future_schedule else "un-likley"
-                        await ctx.channel.send(f"The team ``{userInputTeamName}`` has a stream priority of {team[1]}/{data['Highest Priority']}. It is currently {is_on_future_schedule} to be streamed next week. Last updated on ``{LAST_UPDATED_STRING}``")
+                        await ctx.channel.send(f"The team ``{userInputTeamName}`` has a stream priority of {team[1]}/{ glob_data['Highest Priority']}. It is currently {is_on_future_schedule} to be streamed next week. Last updated on ``{LAST_UPDATED_STRING}``")
                         break
             else:
                 await ctx.channel.send(f"The team ``{userInputTeamName}`` is not currently on the stream schedule. Last updated on ``{LAST_UPDATED_STRING}``")
         else:
             await ctx.channel.send(f"My bad chief, i cannot find ``{userInputTeamName}`` as a team, try !teams for a list of teams we have. Last updated on ``{LAST_UPDATED_STRING}``")
+
 
 @client.command(
     # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
@@ -201,6 +244,7 @@ async def whoscrimson(ctx, arg):
             output = [ti[0] for ti in teaminfo]
             await ctx.channel.send(f"The A51 teams that scrim on {arg} are: ``{', '.join(output)}``")
 
+
 @client.command(
     # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
 	help=f"Updates the bots information on A51 teams. Can only be used by {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}",
@@ -217,6 +261,7 @@ async def update(ctx):
                 is_allowed = True
                 await ctx.channel.send(f"Updating information. This may take a moment....")
                 main()
+                load_data()
                 await ctx.channel.send(f"Bot records have been updated!")
         if not is_allowed:
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
@@ -248,8 +293,8 @@ async def generate(ctx):
     # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
 	help=f"Gives the caster of the month. Example: !cotm prod. Can only be used by {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}",
 	# ADDS THIS VALUE TO THE $HELP MESSAGE.
-	brief="Gives the caster of the month. Example: !cotm prod. Args: prod, pbp, col",
-    aliases=['cotm']
+	brief="[!cotm] Gives the caster of the month. Example: !cotm prod. Args: prod, pbp, col",
+    aliases=['cotm', 'prodofthemonth']
 )
 async def casterofthemonth(ctx, arg):
     print(f'{ctx.author.name} sent command !casterofthemonth')
@@ -263,7 +308,6 @@ async def casterofthemonth(ctx, arg):
                 else:
                     currentMonth = datetime.now().month
                     lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
-                    
                     producers = []
                     caster_pbp = []
                     caster_col = []
@@ -301,7 +345,7 @@ async def casterofthemonth(ctx, arg):
                         embed = build_embed( (winnerData, full_month_name, "Producer", "Produced") )
                         await ctx.send(embed=embed)
 
-                    elif arg == "pbp":
+                    elif arg == "pbp": 
                         for entry in caster_pbp:
                             broadcasterDict[entry] = caster_pbp.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
@@ -321,7 +365,59 @@ async def casterofthemonth(ctx, arg):
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
     
 
-client.run(token)
+@client.command(
+    # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
+	help=f"Gets information about a broadcaster. Example: !ci spaggettiohs",
+	# ADDS THIS VALUE TO THE $HELP MESSAGE.
+	brief="[!ci] Gets information about a broadcaster.",
+    aliases=['ci'] 
+)
+async def casterinfo(ctx, arg):
+    print(f'{ctx.author.name} sent command !casterinfo {arg}')
+    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
+        casterDict = {}
+        user_found_ID = None
+        async for message in caster_signup_channel.history(limit=None):
+            if user_found_ID != None:
+                break
+            if '@' in message.content:
+                user_search = ' '.join(re.findall('<@\d{18}>', message.content))
+                user_search = user_search.replace('<', '').replace('>', '').replace('@', '')
+
+                # add to or update dict
+                for uid in user_search.split():
+                    if user_found_ID == None:
+                        if uid not in casterDict:
+                            try:
+                                casterDict[uid] = await client.fetch_user(int(uid))
+                            except(errors.NotFound):
+                                casterDict[uid] = f'Not Found User ({uid})'
+                    # else:
+                    #     if uid == user_found_ID:
+                    #         casterDict[uid] = [casterDict[uid][0], casterDict[uid][1] + 1]
+
+            # if the user we are looking for has been found
+            if user_found_ID == None:
+                for key in casterDict:
+                    if casterDict[key].name.lower() == arg.lower():
+                        # found! now only count for this user
+                        foundVal = casterDict[key]
+                        casterDict.clear()
+                        casterDict[key] = foundVal
+                        user_found_ID = key
+                        break
+        
+        if user_found_ID == None:
+            await ctx.channel.send(f"I could not find a caster with the name {arg}.")
+        else:
+            winnerUser = casterDict[user_found_ID]
+            embed = build_embed_nomonth((winnerUser, await count_total_casts(winnerUser.id)))
+            await ctx.send(embed=embed)
+
+
+
+client.run(glob_tocken)
 
 
 
