@@ -7,6 +7,8 @@ from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
 
+from DiscordUtils import *
+
 global glob_data
 global glob_tocken
 
@@ -27,17 +29,7 @@ load_data()
 
 LAST_UPDATED_DATE                   = datetime.strptime(glob_data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
 LAST_UPDATED_STRING                 = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
-# ARENA51_GUILD_ID                    = 743968283006337116
-# ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 999094760750981221]
-# SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
-# CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
-# BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
-# BROADCASTER_ROLES                   = ['caster_ow', 'observer_ow', 'producer']
-# PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'team manager']
-# PREVIOUS_SCHEDULE_STRING            = ''
-# PREVIOUS_SCHEDULE_LOOKBACK          = 4
-# STREAM_RUNTIME_HOURS                = 3
-# STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
+
 
 client = commands.Bot(command_prefix='!')
 
@@ -45,88 +37,6 @@ client = commands.Bot(command_prefix='!')
 # TODO: Change cotm to fetch only message history in a cirtain time frame
 # TODO: !casterinfo counts duo prod/cast reacts for the same day as two different days for the stats.
 
-def replace_roleid_with_rolename(message, guild):
-    '''replaces any instances of role ID tags with the role corrisponding role's name.
-        Also removes any roles that are between ~~strikethrough~~ tags'''
-    # fist, get a list of all the ID's in the message
-    # remove any ID's tht are between ~~strikethrough~~ tags
-    strikethroughs = re.findall('~~<@&\d{18}>\d*.*~~', message)
-    if strikethroughs:
-        for s in strikethroughs:
-            message = message.replace(s, '')
-
-    # replace all ids with team names
-    rids = re.findall('<@&\d{18}>', message)
-    rids = [i.replace('<@&', '').replace('>', '') for i in rids]
-
-    # Get each IDs name, and replace
-    ret = message
-    for rid in rids:
-        role = guild.get_role(int(rid))
-        if role != None:
-            rid_name = role.name.replace(' ', '').upper()
-            ret = ret.replace(rid, rid_name)
-    return ret
-
-
-async def count_total_casts(userID):
-    counter = 0
-    async for message in client.get_channel(CASTERSIGNUP_CHANNEL_ID).history(limit=None):
-        if str(userID) in message.content:
-            counter += 1
-    return counter
-
-
-def build_embed(tupledata):
-    cotm_prod, full_month_name, prefix, verb = tupledata
-
-    # embed the information
-    embed=Embed(
-        title=f"{full_month_name}'s {prefix} of the month!", 
-        description=f"{cotm_prod[0].display_name} (aka {cotm_prod[0].name}#{cotm_prod[0].discriminator})", 
-        color=Color.blue())
-
-    embed.set_author(
-        name=cotm_prod[0].display_name, 
-        icon_url=cotm_prod[0].avatar_url)
-
-    embed.set_thumbnail(
-        url=cotm_prod[0].avatar_url
-    )
-
-    embed.add_field(name=f"{verb}", 
-    value=f"{verb} {cotm_prod[1]} times last month.", 
-    inline=True)
-
-    embed.add_field(name=f"Total {verb}", 
-    value=f"Has {verb} {cotm_prod[2]} times total, thats ~{(int(cotm_prod[2]) * STREAM_RUNTIME_HOURS):,} hours, or ~{(int(cotm_prod[2]) * STREAM_RUNTIME_MINS):,} mins live!", 
-    inline=True)
-
-    return embed
-
-
-def build_embed_nomonth(tupledata):
-    user, score = tupledata
-
-    # embed the information
-    embed=Embed(
-        title=f"{user.name} Broadcaster info:", 
-        description=f"{user.display_name} (aka {user.name}#{user.discriminator})", 
-        color=Color.blue())
-
-    embed.set_author(
-        name=user.display_name, 
-        icon_url=user.avatar_url)
-
-    embed.set_thumbnail(
-        url=user.avatar_url
-    )
-
-    embed.add_field(name=f"Total stats", 
-    value=f"Has Casted/Produced {score} times total, thats ~{(int(score) * STREAM_RUNTIME_HOURS):,} hours, or ~{(int(score) * STREAM_RUNTIME_MINS):,} mins live!", 
-    inline=False)
-
-    return embed
 
 
 @client.event
@@ -342,7 +252,7 @@ async def casterofthemonth(ctx, arg):
                         for entry in producers:
                             broadcasterDict[entry] = producers.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
                         embed = build_embed( (winnerData, full_month_name, "Producer", "Produced") )
                         await ctx.send(embed=embed)
 
@@ -350,7 +260,7 @@ async def casterofthemonth(ctx, arg):
                         for entry in caster_pbp:
                             broadcasterDict[entry] = caster_pbp.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
                         embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casted") )
                         await ctx.send(embed=embed)
                     
@@ -358,7 +268,7 @@ async def casterofthemonth(ctx, arg):
                         for entry in caster_col:
                             broadcasterDict[entry] = caster_col.count(entry)
                         winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id)]
+                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
                         embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casted") )
                         await ctx.send(embed=embed)
                     
@@ -413,7 +323,7 @@ async def casterinfo(ctx, arg):
             await ctx.channel.send(f"I could not find a caster with the name {arg}.")
         else:
             winnerUser = casterDict[user_found_ID]
-            embed = build_embed_nomonth((winnerUser, await count_total_casts(winnerUser.id)))
+            embed = build_embed_nomonth((winnerUser, await count_total_casts(winnerUser.id, client)))
             await ctx.send(embed=embed)
 
 
