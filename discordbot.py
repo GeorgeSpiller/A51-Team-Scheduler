@@ -3,8 +3,9 @@ import re
 from os import getcwd
 from discord.ext import commands
 from discord import Embed, Color, errors
-from datetime import timedelta, date, datetime
-from Schedule import PREVIOUS_SCHEDULES_TEXTFILE, get_teams, get_days_scrimming_teams, main
+from datetime import datetime
+from Schedule import get_teams, get_days_scrimming_teams, main
+from Constants import *
 
 global glob_data
 global glob_tocken
@@ -26,17 +27,17 @@ load_data()
 
 LAST_UPDATED_DATE                   = datetime.strptime(glob_data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
 LAST_UPDATED_STRING                 = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
-ARENA51_GUILD_ID                    = 743968283006337116
-ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 999094760750981221]
-SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
-CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
-BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
-BROADCASTER_ROLES                   = ['caster_ow', 'observer_ow', 'producer']
-PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'team manager']
-PREVIOUS_SCHEDULE_STRING            = ''
-PREVIOUS_SCHEDULE_LOOKBACK          = 4
-STREAM_RUNTIME_HOURS                = 3
-STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
+# ARENA51_GUILD_ID                    = 743968283006337116
+# ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 999094760750981221]
+# SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
+# CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
+# BOTCOMMANDS_ALLOWED_CHANNELS        = [1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033]
+# BROADCASTER_ROLES                   = ['caster_ow', 'observer_ow', 'producer']
+# PROTECTED_COMMANDS_ALLOWED_ROLES    = ['manager', 'team manager']
+# PREVIOUS_SCHEDULE_STRING            = ''
+# PREVIOUS_SCHEDULE_LOOKBACK          = 4
+# STREAM_RUNTIME_HOURS                = 3
+# STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
 
 client = commands.Bot(command_prefix='!')
 

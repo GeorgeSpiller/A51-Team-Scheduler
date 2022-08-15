@@ -4,6 +4,8 @@ from datetime import timedelta, date, datetime
 from json import dumps
 from os import getcwd
 
+from Constants import *
+
 
 def cellFormat_to_color(cellformatstring):
     '''Small Global function used to convert gspread_formatting.CellFormat data to RGB color values. 
@@ -26,23 +28,23 @@ def cellFormat_to_color(cellformatstring):
     return None
 
 
-# ----- difine constants -----
-# Create the service account from the json private key, allowing use access to the teams spreadsheet
-SERVICE_ACCOUNT = service_account(filename=f'{getcwd()}\\auth\\plasma-respect-323910-617fd6c81027.json')
-SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1n-W6oyEv4HehYN3gYcUVk7dOJQUP_Y70L7AN_Sp8Lgo/edit#gid=2043552790'
-SPREADSHEET = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_URL)
-WORKSHEET = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
-WORKSHEET_AVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
-WORKSHEET_NOTAVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
+# # ----- difine constants -----
+# # Create the service account from the json private key, allowing use access to the teams spreadsheet
+# SERVICE_ACCOUNT = service_account(filename=f'{getcwd()}\\auth\\plasma-respect-323910-617fd6c81027.json')
+# SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1n-W6oyEv4HehYN3gYcUVk7dOJQUP_Y70L7AN_Sp8Lgo/edit#gid=2043552790'
+# SPREADSHEET = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_URL)
+# WORKSHEET = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
+# WORKSHEET_AVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
+# WORKSHEET_NOTAVAILABLE_CELLFORMAT = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
 
-# use the constant cells in the sheets key to deturmine what the format for avaliable and not available is
-AVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_AVAILABLE_CELLFORMAT))
-NOTAVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_NOTAVAILABLE_CELLFORMAT))
-# used to store the previous stream schedules. This would be the scraped discord message(s) as a string  
-PREVIOUS_SCHEDULES_TEXTFILE = f'{getcwd()}\\data\\previousSchedules.txt'
-# used to store information about teams ad scheduleing. This is what the discord bot reads and relays to users
-TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\data\\ScheduleInfo.json'
-JSON_DUMP_OBJECT = {  }
+# # use the constant cells in the sheets key to deturmine what the format for avaliable and not available is
+# AVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_AVAILABLE_CELLFORMAT))
+# NOTAVAILABLE_COLOR = cellFormat_to_color(str(WORKSHEET_NOTAVAILABLE_CELLFORMAT))
+# # used to store the previous stream schedules. This would be the scraped discord message(s) as a string  
+# PREVIOUS_SCHEDULES_TEXTFILE = f'{getcwd()}\\data\\previousSchedules.txt'
+# # used to store information about teams ad scheduleing. This is what the discord bot reads and relays to users
+# TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\data\\ScheduleInfo.json'
+# JSON_DUMP_OBJECT = {  }
 
 
 # ---------------------- consts setup finished ----------------------  #
@@ -252,8 +254,7 @@ def get_schedule(teams):
 
     for dayIndex, _ in dayOrder:    # list is already sorted, so the 2nd 'number of teams scrimming' value can be ignored
         available_teams = get_days_scrimming_teams(remainingTeams, dayIndex)
-        #print(f'for day {dayIndex} avTeams: {[t[0] for t in available_teams]}')
-        if available_teams[0]:  # if there exists teams to place on the schedule, place the next highest scoring team
+        if available_teams:  # if there exists teams to place on the schedule, place the next highest scoring team
             final_order.insert(dayIndex, [available_teams[0][0]]) # only insert the teamname (no other data is needed)
             del final_order[dayIndex + 1]
             remainingTeams.remove(available_teams[0])   # remove chosen team from the pool
