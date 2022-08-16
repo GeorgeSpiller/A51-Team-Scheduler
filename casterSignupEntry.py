@@ -17,26 +17,8 @@ class CSignupEntry:
 
 
     def __init__(self, rawSignupString, datePosted):
-        strDay = re.findall('\*{2}\w*:\*{2}', rawSignupString)
-        if len(strDay) == 1:
-            self.date = self.__extract_post_date(datePosted, strDay[0].replace("**", "").replace(":", ""))
-        else:
-            unsureDay = re.findall('\*{2}\w*.*\*{2}', rawSignupString)
-            for match in unsureDay:
-                for d_str in match.split():
-                    print(f'evaluating unsureString: {d_str}, passing: {d_str.replace("**", "").replace(":", "")}')
-                    try:
-                        self.date = self.__extract_post_date(datePosted, d_str.replace("**", "").replace(":", ""))
-                    except DayNotFoundError:
-                        continue
-                    if self.date != None:
-                        break
-                if self.date != None:
-                        break
-            print(f'self.date is {self.date}')
-            if self.date == None:
-                raise MessageDayCountError(rawSignupString)
         
+        self.date = self.__extract_post_date(rawSignupString, datePosted)
         self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
         self.label_YearMonth = f'{self.date.year}-{self.date.month}'
         self.label_YearMonthDay = f'{self.label_YearMonth}-{self.date.day}'
@@ -59,13 +41,38 @@ class CSignupEntry:
         return hash((self.date, self.prods, self.cols, self.pbps))
 
 
-    def __extract_post_date(self, datePosted, listedDay):
-        # the date that the message represents can be between listedDay and listedDay + 7days
-        for _ in range(7): # for each day of the week 
-            if datePosted.strftime("%A").lower().strip() == listedDay.lower().strip():
-                return datePosted 
-            datePosted += timedelta(days=1)
-        raise DayNotFoundError(listedDay)
+    def __extract_post_date(self, rawSignupString, datePosted):
+
+        def getDay(dp, ld):
+            '''Small function for filtering out day from string'''
+            # the date that the message represents can be between listedDay and listedDay + 7days
+            for _ in range(7): # for each day of the week 
+                if dp.strftime("%A").lower().strip() == ld.lower().strip():
+                    return dp 
+                dp += timedelta(days=1)
+            raise DayNotFoundError(ld)
+        
+        returnDate = None
+        strDay = re.findall('\*{2}\w*:\*{2}', rawSignupString)
+        if len(strDay) == 1:
+            return getDay(datePosted, strDay[0].replace("**", "").replace(":", ""))
+        else:
+            unsureDay = re.findall('\*{2}\w*.*\*{2}', rawSignupString)
+            for match in unsureDay:
+                for d_str in match.split():
+                    try:
+                        returnDate = getDay(datePosted, d_str.replace("**", "").replace(":", ""))
+                    except DayNotFoundError:
+                        continue
+                    if returnDate != None:
+                        break
+                if returnDate != None:
+                        break
+            if returnDate == None:
+                raise MessageDayCountError(rawSignupString)
+            else:
+                return returnDate
+
 
 
     def __extract_broadcasters(self, rawStr):

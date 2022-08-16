@@ -273,6 +273,7 @@ async def loadcasters(ctx):
                     if (not any(role in message.content for role in discordRoles)):
                         entry = CSignupEntry(message.content, message.created_at)
                         entry.save()
+            
 
         else: #  if not is_allowed
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
