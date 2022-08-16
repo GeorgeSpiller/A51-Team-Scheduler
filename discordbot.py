@@ -6,8 +6,8 @@ from discord import Embed, Color, errors
 from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
-
 from DiscordUtils import *
+from casterSignupEntry import CSignupEntry
 
 global glob_data
 global glob_tocken
@@ -43,19 +43,13 @@ client = commands.Bot(command_prefix='!')
 async def on_ready():
     print('logged in as {0.user}'.format(client))
     print(f'{client.user} is connected to the following servers:\n')
+    load_data()
     for guild in client.guilds:
         for textChannel in guild.text_channels:
             if textChannel.id == SCHEDULE_CHANNEL_ID:
-                messageList = []
-                async for message in textChannel.history(limit=PREVIOUS_SCHEDULE_LOOKBACK):
-                    messageList.append(message.content)
-                messageList.reverse()
-                PREVIOUS_SCHEDULE_STRING = '-----------------------------------------'.join(messageList)
-                PREVIOUS_SCHEDULE_STRING = replace_roleid_with_rolename(PREVIOUS_SCHEDULE_STRING, guild)
-                with open(PREVIOUS_SCHEDULES_TEXTFILE, 'w') as f:
-                    f.write(PREVIOUS_SCHEDULE_STRING)
+                await dutil_write_previous_schedule(guild, textChannel)
                 break
-        load_data()
+
         print(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:
             print(f'leaving server: {guild.name} ({guild.id})')
@@ -127,25 +121,7 @@ async def whoscrimson(ctx, arg):
     print(f'{ctx.author.name} sent command !whoscrimson {arg}')
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         processedInput = arg[:2].lower()
-        #   m, tu, w, th, f, sa, su,
-        #   0  1   2  3   4  5   6
-        # god this is ugly, but need to update to python 3.10 for match statment :((
-        if processedInput == 'mo':
-            processedInput = 0
-        elif processedInput == 'tu':
-            processedInput = 1
-        elif processedInput == 'we':
-            processedInput = 2
-        elif processedInput == 'th':
-            processedInput = 3
-        elif processedInput == 'fr':
-            processedInput = 4
-        elif processedInput == 'sa':
-            processedInput = 5
-        elif processedInput == 'su':
-            processedInput = 6
-        else:
-            processedInput = -1
+        processedInput = dutl_dayString_to_dayumber(processedInput)
         
         if processedInput == -1:
             await ctx.channel.send(f'I dont recognise ``{arg}`` as a day of the week.')
@@ -217,61 +193,7 @@ async def casterofthemonth(ctx, arg):
                 if arg != "prod" and arg != "pbp" and arg != "col":
                     await ctx.channel.send(f"Unrecognised argument ``{arg}``! Please use iether: ``prod``, ``pbp`` or ``col``.")
                 else:
-                    currentMonth = datetime.now().month
-                    lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
-                    producers = []
-                    caster_pbp = []
-                    caster_col = []
-                    caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
-                    async for message in caster_signup_channel.history(limit=45*2):   # 45 is the maximum amount of messages a month the bot that posts in this channel could post
-                        if message.created_at.month == lastMonth:
-                            if '@' in message.content:
-                                producer_search = ' '.join(re.findall('Production\/Observer\(🎥\): (<@\d{18}> ?)*', message.content))
-                                caster_pbp_search = ' '.join(re.findall('Play-By-Play\(🎙\): (<@\d{18}> ?)*', message.content))
-                                caster_col_search = ' '.join(re.findall('Colour\(🔬\): (<@\d{18}> ?)*', message.content))
-
-                                if producer_search:
-                                    producers.append(producer_search.replace('<', '').replace('>', '').replace('@', ''))
-                                
-                                if caster_pbp_search:
-                                    caster_pbp.append(caster_pbp_search.replace('<', '').replace('>', '').replace('@', ''))
-
-                                if caster_col_search:
-                                    caster_col.append(caster_col_search.replace('<', '').replace('>', '').replace('@', ''))
-
-                    # count the occurance of each name, based on which role was inout as an arg
-                    datetime_object = datetime.strptime(str(lastMonth), "%m")
-                    full_month_name = datetime_object.strftime("%B")
-
-                    broadcasterDict = {}
-                    winnerData = []
-                    embed = None
-                    winnerUser = None
-
-                    if arg == "prod":
-                        for entry in producers:
-                            broadcasterDict[entry] = producers.count(entry)
-                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
-                        embed = build_embed( (winnerData, full_month_name, "Producer", "Produced") )
-                        await ctx.send(embed=embed)
-
-                    elif arg == "pbp": 
-                        for entry in caster_pbp:
-                            broadcasterDict[entry] = caster_pbp.count(entry)
-                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
-                        embed = build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casted") )
-                        await ctx.send(embed=embed)
-                    
-                    elif arg == "col":
-                        for entry in caster_col:
-                            broadcasterDict[entry] = caster_col.count(entry)
-                        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-                        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await count_total_casts(winnerUser.id, client)]
-                        embed = build_embed( (winnerData, full_month_name, "Color Caster", "Casted") )
-                        await ctx.send(embed=embed)
-                    
+                    dutil_cotm(client, arg, ctx)
         if not is_allowed:
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
     
@@ -323,8 +245,39 @@ async def casterinfo(ctx, arg):
             await ctx.channel.send(f"I could not find a caster with the name {arg}.")
         else:
             winnerUser = casterDict[user_found_ID]
-            embed = build_embed_nomonth((winnerUser, await count_total_casts(winnerUser.id, client)))
+            embed = dutil_build_embed_nomonth((winnerUser, await dutil_count_total_casts(winnerUser.id, client)))
             await ctx.send(embed=embed)
+
+
+
+@client.command(
+    # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
+	help=f"Can only be used by {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}",
+	# ADDS THIS VALUE TO THE $HELP MESSAGE.
+	brief="",
+    aliases=['lc']
+)
+async def loadcasters(ctx):
+    print(f'{ctx.author.name} sent command !loadcasters')
+    is_allowed = False
+    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        for role in PROTECTED_COMMANDS_ALLOWED_ROLES:
+            if role in [y.name.lower() for y in ctx.author.roles]:
+                is_allowed = True
+
+        if is_allowed:
+            # load all new signup messages into jsons
+            caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
+
+            async for message in caster_signup_channel.history(limit=6):
+                # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
+                if "<@&913494942511431681> <@&763408133736366142> <@&808742990868512849>" not in message.content:
+                    entry = CSignupEntry(message.content, message.created_at)
+                    print(entry)
+
+        else: #  if not is_allowed
+            await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
+    
 
 
 
