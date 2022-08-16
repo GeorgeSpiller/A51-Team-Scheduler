@@ -226,9 +226,6 @@ async def casterinfo(ctx, arg):
                                 casterDict[uid] = await client.fetch_user(int(uid))
                             except(errors.NotFound):
                                 casterDict[uid] = f'Not Found User ({uid})'
-                    # else:
-                    #     if uid == user_found_ID:
-                    #         casterDict[uid] = [casterDict[uid][0], casterDict[uid][1] + 1]
 
             # if the user we are looking for has been found
             if user_found_ID == None:
@@ -268,12 +265,14 @@ async def loadcasters(ctx):
         if is_allowed:
             # load all new signup messages into jsons
             caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
-
-            async for message in caster_signup_channel.history(limit=6):
+            # bot starts posting at/or/after roughly  01/2022
+            async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 1, 1)):
                 # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
-                if "<@&913494942511431681> <@&763408133736366142> <@&808742990868512849>" not in message.content:
-                    entry = CSignupEntry(message.content, message.created_at)
-                    print(entry)
+                if message.author.bot:
+                    discordRoles = ['<@&913494942511431681>', '@DiamondPack', '<@&763408133736366142>', '<@&808742990868512849>', '<@913494942511431681>', '<@763408133736366142>', '<@808742990868512849>']
+                    if (not any(role in message.content for role in discordRoles)):
+                        entry = CSignupEntry(message.content, message.created_at)
+                        entry.save()
 
         else: #  if not is_allowed
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")

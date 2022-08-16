@@ -1,6 +1,8 @@
 import re
+import json
 from datetime import datetime, timedelta
-
+from Constants import BROADCASTER_SIGNUPSTORE_DIR
+from os.path import exists
 
 class CSignupEntry:
     
@@ -8,15 +10,37 @@ class CSignupEntry:
     prods = None
     cols = None
     pbps = None
+    label_YearMonth = None
+    label_YearMonthDay = None
+    entrySaveFileName = None
+
 
 
     def __init__(self, rawSignupString, datePosted):
-        self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
         strDay = re.findall('\*{2}\w*:\*{2}', rawSignupString)
         if len(strDay) == 1:
             self.date = self.__extract_post_date(datePosted, strDay[0].replace("**", "").replace(":", ""))
         else:
-            raise MessageDayCountError(rawSignupString)
+            unsureDay = re.findall('\*{2}\w*.*\*{2}', rawSignupString)
+            for match in unsureDay:
+                for d_str in match.split():
+                    print(f'evaluating unsureString: {d_str}, passing: {d_str.replace("**", "").replace(":", "")}')
+                    try:
+                        self.date = self.__extract_post_date(datePosted, d_str.replace("**", "").replace(":", ""))
+                    except DayNotFoundError:
+                        continue
+                    if self.date != None:
+                        break
+                if self.date != None:
+                        break
+            print(f'self.date is {self.date}')
+            if self.date == None:
+                raise MessageDayCountError(rawSignupString)
+        
+        self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
+        self.label_YearMonth = f'{self.date.year}-{self.date.month}'
+        self.label_YearMonthDay = f'{self.label_YearMonth}-{self.date.day}'
+        self.entrySaveFileName = f'[{self.label_YearMonth}] Broadcaster-Signup-Store.json'
 
 
     def __repr__(self):
@@ -24,8 +48,7 @@ class CSignupEntry:
 
 
     def __str__(self):
-        d = self.date.strftime("%m/%d/%Y")
-        return f"<({hash(self)}): date: {d}, prods: {self.prods}, cols: {self.cols}, pbps: {self.pbps}>"
+        return f"<({hash(self)}): label: {self.label_YearMonthDay}, prods: {self.prods}, cols: {self.cols}, pbps: {self.pbps}>"
 
 
     def __eq__(self, other):
@@ -40,7 +63,7 @@ class CSignupEntry:
         # the date that the message represents can be between listedDay and listedDay + 7days
         for _ in range(7): # for each day of the week 
             if datePosted.strftime("%A").lower().strip() == listedDay.lower().strip():
-                return datePosted
+                return datePosted 
             datePosted += timedelta(days=1)
         raise DayNotFoundError(listedDay)
 
@@ -65,6 +88,23 @@ class CSignupEntry:
 
         return producers, colours, playbyplays
 
+
+    def save(self):
+        # save the entry to the corrrect json file
+        # check if json exists,
+        monthDict = {}
+        saveFilePath = f'{BROADCASTER_SIGNUPSTORE_DIR}\\{self.entrySaveFileName}'
+        if exists(saveFilePath):
+            # read all entries into dict. Add self to that dict.
+            with open(saveFilePath, 'r') as f:
+                monthDict = json.load(f)
+
+        selfSaveData = vars(self)
+        selfSaveData['date'] = self.date.isoformat()
+        monthDict[self.label_YearMonthDay] = selfSaveData
+        
+        with open(saveFilePath, 'w') as f:
+            json.dump(monthDict, f)
 
     
 

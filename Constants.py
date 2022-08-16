@@ -1,4 +1,5 @@
 from os import getcwd
+from re import A
 from gspread import service_account
 from gspread_formatting import get_user_entered_format
 from datetime import timedelta, date, datetime
@@ -56,6 +57,8 @@ PREVIOUS_SCHEDULE_LOOKBACK          = 4
 STREAM_RUNTIME_HOURS                = 3
 STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
 
+# ----- casterSignupEnty -----
+BROADCASTER_SIGNUPSTORE_DIR         = f'{getcwd()}\\data\\BroadcasterSigunupStore\\'
 
 
 
