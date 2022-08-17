@@ -50,11 +50,11 @@ async def on_ready():
             if textChannel.id == SCHEDULE_CHANNEL_ID:
                 await dutil_write_previous_schedule(guild, textChannel)
                 break
-
         print(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:
             print(f'leaving server: {guild.name} ({guild.id})')
             await client.get_guild(int(guild.id)).leave()
+    await dutil_updateall(client)
 
 
 @client.command(
@@ -148,7 +148,7 @@ async def update(ctx):
             if role in [y.name.lower() for y in ctx.author.roles]:
                 is_allowed = True
                 await ctx.channel.send(f"Updating information. This may take a moment....")
-                main()
+                await dutil_updateall(client)
                 load_data()
                 await ctx.channel.send(f"Bot records have been updated!")
         if not is_allowed:
@@ -229,7 +229,7 @@ async def casterinfo(ctx, arg):
         with open(BROADCASTER_ID_TO_NAME_FILE, 'r') as f:
             casterIDsAndNames = json.load(f)
         for name in casterIDsAndNames.values():
-            if name.lower().strip() == arg.lower().strip():
+            if name.lower().strip() == userNameString:
                 position = list(casterIDsAndNames.values()).index(name)
                 requestedUser = list(casterIDsAndNames.keys())[position]
 
@@ -241,58 +241,6 @@ async def casterinfo(ctx, arg):
         else:
             # user not found
              await ctx.channel.send(f"Ope. I cannot find the user ``{arg}`` in <#{SCHEDULE_CHANNEL_ID}>. ")
-        
-
-
-@client.command(
-    # ADDS THIS VALUE TO THE $HELP PRINT MESSAGE.
-	help=f"Can only be used by {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}",
-	# ADDS THIS VALUE TO THE $HELP MESSAGE.
-	brief="",
-    aliases=['lc']
-)
-async def loadcasters(ctx):
-    print(f'{ctx.author.name} sent command !loadcasters')
-    is_allowed = False
-    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
-        for role in PROTECTED_COMMANDS_ALLOWED_ROLES:
-            if role in [y.name.lower() for y in ctx.author.roles]:
-                is_allowed = True
-
-        if is_allowed:
-            # load all new signup messages into jsons
-            caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
-            casterIDs = []
-            casterIDsNames = {}
-            # bot starts posting at/or/after roughly  01/2022
-            async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 1, 1)):
-                # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
-                if message.author.bot:
-                    discordRoles = ['<@&913494942511431681>', '@DiamondPack', '<@&763408133736366142>', '<@&808742990868512849>', '<@913494942511431681>', '<@763408133736366142>', '<@808742990868512849>']
-                    if (not any(role in message.content for role in discordRoles)):
-                        entry = CSignupEntry(message.content, message.created_at)
-                        entry.save()
-                        idsInEntry = [entry.prods, entry.cols, entry.pbps]
-                        idsInEntry = [item for sublist in idsInEntry for item in sublist]
-                        for id in idsInEntry:
-                            if id not in casterIDs:
-                                casterIDs.append(id)
-
-            # get all caster IDs and corresponding names
-            for uniqueUserID in casterIDs:
-                try:
-                    queryUser = await client.fetch_user(int(uniqueUserID))
-                    casterIDsNames[uniqueUserID] = queryUser.name
-                except errors.NotFound:
-                    continue
-            # save all caster IDs and names in json
-            # BROADCASTER_ID_TO_NAME_FILE
-            with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
-                json.dump(casterIDsNames, f)
-
-        else: #  if not is_allowed
-            await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
-    
 
 
 

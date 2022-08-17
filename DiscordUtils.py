@@ -6,6 +6,7 @@ from discord import Embed, Color, errors
 from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
+from casterSignupEntry import CSignupEntry
 
 
 def dutil_replace_roleid_with_rolename(message, guild):
@@ -217,8 +218,39 @@ def dutil_count_broadcasts(jsonDict, userID=None):
     return counts
 
 
+async def dutil_updateall(client):
+    print(f' ----- Updating all records -----')
+    main()
 
+    # load all new signup messages into jsons
+    caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
+    casterIDs = []
+    casterIDsNames = {}
+    # bot starts posting at/or/after roughly  01/2022
+    async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 1, 1)):
+        # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
+        if message.author.bot:
+            discordRoles = ['<@&913494942511431681>', '@DiamondPack', '<@&763408133736366142>', '<@&808742990868512849>', '<@913494942511431681>', '<@763408133736366142>', '<@808742990868512849>']
+            if (not any(role in message.content for role in discordRoles)):
+                entry = CSignupEntry(message.content, message.created_at)
+                entry.save()
+                idsInEntry = [entry.prods, entry.cols, entry.pbps]
+                idsInEntry = [item for sublist in idsInEntry for item in sublist]
+                for id in idsInEntry:
+                    if id not in casterIDs:
+                        casterIDs.append(id)
 
+    # get all caster IDs and corresponding names
+    for uniqueUserID in casterIDs:
+        try:
+            queryUser = await client.fetch_user(int(uniqueUserID))
+            casterIDsNames[uniqueUserID] = queryUser.name
+        except errors.NotFound:
+            continue
+    # save all caster IDs and names in json
+    with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
+        json.dump(casterIDsNames, f)
+    print(f' ----- Finished Updating all records -----')
 
 
 
