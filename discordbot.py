@@ -226,18 +226,15 @@ async def casterinfo(ctx, arg):
 
         # read the json store to first match a caster name to ID
         requestedUser = None
-        for filename in listdir(BROADCASTER_SIGNUPSTORE_DIR):
-            if filename == '.gitignore':
-                continue
+        with open(BROADCASTER_ID_TO_NAME_FILE, 'r') as f:
+            casterIDsAndNames = json.load(f)
+        for name in casterIDsAndNames.values():
+            if name.lower().strip() == arg.lower().strip():
+                position = list(casterIDsAndNames.values()).index(name)
+                requestedUser = list(casterIDsAndNames.keys())[position]
 
-            json_Month = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
-            with open(json_Month, 'r') as f:
-                requestedUser = await dutil_find_userID(userNameString, json.load(f), client)
-
-            if requestedUser != None:
-                break
-        # count users broadcasts for that month:
-        if requestedUser:
+        if requestedUser != None:
+            requestedUser = await client.fetch_user(int(requestedUser))
             castedCountString = get_total_broadcasts_string(requestedUser.id)
             embed = await dutil_build_embed(requestedUser, castedCountString, client)
             await ctx.send(embed=embed)
@@ -265,6 +262,8 @@ async def loadcasters(ctx):
         if is_allowed:
             # load all new signup messages into jsons
             caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
+            casterIDs = []
+            casterIDsNames = {}
             # bot starts posting at/or/after roughly  01/2022
             async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 1, 1)):
                 # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
@@ -273,7 +272,23 @@ async def loadcasters(ctx):
                     if (not any(role in message.content for role in discordRoles)):
                         entry = CSignupEntry(message.content, message.created_at)
                         entry.save()
-            
+                        idsInEntry = [entry.prods, entry.cols, entry.pbps]
+                        idsInEntry = [item for sublist in idsInEntry for item in sublist]
+                        for id in idsInEntry:
+                            if id not in casterIDs:
+                                casterIDs.append(id)
+
+            # get all caster IDs and corresponding names
+            for uniqueUserID in casterIDs:
+                try:
+                    queryUser = await client.fetch_user(int(uniqueUserID))
+                    casterIDsNames[uniqueUserID] = queryUser.name
+                except errors.NotFound:
+                    continue
+            # save all caster IDs and names in json
+            # BROADCASTER_ID_TO_NAME_FILE
+            with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
+                json.dump(casterIDsNames, f)
 
         else: #  if not is_allowed
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")

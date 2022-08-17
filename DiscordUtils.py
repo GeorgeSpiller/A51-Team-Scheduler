@@ -122,64 +122,6 @@ def dutl_dayString_to_dayumber(inp):
     return inp
 
 
-async def dutil_cotm(client, arg, ctx):
-
-    currentMonth = datetime.now().month
-    lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
-    producers = []
-    caster_pbp = []
-    caster_col = []
-    caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
-    async for message in caster_signup_channel.history(limit=45*2):   # 45 is the maximum amount of messages a month the bot that posts in this channel could post
-        if message.created_at.month == lastMonth:
-            if '@' in message.content:
-                producer_search = ' '.join(re.findall('Production\/Observer\(🎥\): (<@\d{18}> ?)*', message.content))
-                caster_pbp_search = ' '.join(re.findall('Play-By-Play\(🎙\): (<@\d{18}> ?)*', message.content))
-                caster_col_search = ' '.join(re.findall('Colour\(🔬\): (<@\d{18}> ?)*', message.content))
-
-                if producer_search:
-                    producers.append(producer_search.replace('<', '').replace('>', '').replace('@', ''))
-                
-                if caster_pbp_search:
-                    caster_pbp.append(caster_pbp_search.replace('<', '').replace('>', '').replace('@', ''))
-
-                if caster_col_search:
-                    caster_col.append(caster_col_search.replace('<', '').replace('>', '').replace('@', ''))
-
-    # count the occurance of each name, based on which role was inout as an arg
-    datetime_object = datetime.strptime(str(lastMonth), "%m")
-    full_month_name = datetime_object.strftime("%B")
-
-    broadcasterDict = {}
-    winnerData = []
-    embed = None
-    winnerUser = None
-
-    if arg == "prod":
-        for entry in producers:
-            broadcasterDict[entry] = producers.count(entry)
-        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await dutil_count_total_casts(winnerUser.id, client)]
-        embed = dutil_build_embed( (winnerData, full_month_name, "Producer", "Produced") )
-        await ctx.send(embed=embed)
-
-    elif arg == "pbp": 
-        for entry in caster_pbp:
-            broadcasterDict[entry] = caster_pbp.count(entry)
-        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await dutil_count_total_casts(winnerUser.id, client)]
-        embed = dutil_build_embed( (winnerData, full_month_name, "Play-by-Play Caster", "Casted") )
-        await ctx.send(embed=embed)
-    
-    elif arg == "col":
-        for entry in caster_col:
-            broadcasterDict[entry] = caster_col.count(entry)
-        winnerUser = await client.fetch_user(int(max(broadcasterDict, key=broadcasterDict.get)))
-        winnerData = [winnerUser, broadcasterDict[str(winnerUser.id)], await dutil_count_total_casts(winnerUser.id, client)]
-        embed = dutil_build_embed( (winnerData, full_month_name, "Color Caster", "Casted") )
-        await ctx.send(embed=embed)
-
-
 def get_total_broadcasts_string(userID):
     count_prod, count_col, count_pbp, count_total = 0, 0, 0, 0
     for filename in listdir(BROADCASTER_SIGNUPSTORE_DIR):
@@ -242,20 +184,6 @@ def dutil_get_all_casterIDs(jsonDict):
                 casterIDs.append(entry[0])
     
     return [*set(casterIDs)]
-
-
-async def dutil_find_userID(userNameString, jsonDict, client):
-
-    casterIDs = dutil_get_all_casterIDs(jsonDict)
-
-    for uniqueUserID in casterIDs:
-        try:
-            queryUser = await client.fetch_user(int(uniqueUserID))
-        except errors.NotFound:
-            continue
-        if queryUser.name.lower().strip() == userNameString.lower().strip():
-            return queryUser
-    return None
 
 
 def dutil_count_broadcasts(jsonDict, userID=None):

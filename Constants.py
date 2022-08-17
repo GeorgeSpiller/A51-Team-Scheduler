@@ -56,6 +56,7 @@ PREVIOUS_SCHEDULE_STRING            = ''
 PREVIOUS_SCHEDULE_LOOKBACK          = 4
 STREAM_RUNTIME_HOURS                = 3
 STREAM_RUNTIME_MINS                 = STREAM_RUNTIME_HOURS * 60
+BROADCASTER_ID_TO_NAME_FILE         = f'{getcwd()}\\data\\BroadcasterIDsAndNames.json'
 
 # ----- casterSignupEnty -----
 BROADCASTER_SIGNUPSTORE_DIR         = f'{getcwd()}\\data\\BroadcasterSigunupStore\\'
