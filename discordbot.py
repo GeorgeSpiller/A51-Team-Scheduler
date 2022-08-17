@@ -1,6 +1,7 @@
+from itertools import count
 import json
 import re
-from os import getcwd
+from os import getcwd, listdir, path
 from discord.ext import commands
 from discord import Embed, Color, errors
 from datetime import datetime
@@ -193,7 +194,19 @@ async def casterofthemonth(ctx, arg):
                 if arg != "prod" and arg != "pbp" and arg != "col":
                     await ctx.channel.send(f"Unrecognised argument ``{arg}``! Please use iether: ``prod``, ``pbp`` or ``col``.")
                 else:
-                    dutil_cotm(client, arg, ctx)
+                    # get month specific info
+                    currentMonth = datetime.now().month
+                    lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
+                    casterOTM = dutil_get_mostFrequent_broadcasters(lastMonth, arg)
+                    casterOTM_ID = list(casterOTM.keys())[0]
+
+                    # get total info
+                    casterOTM_total = get_total_broadcasts_string(casterOTM_ID)
+
+                    embed = await dutil_build_embed(await client.fetch_user(int(casterOTM_ID)), casterOTM_total, client, lastMonth, arg, casterOTM[casterOTM_ID])
+                    await ctx.send(embed=embed)
+
+
         if not is_allowed:
             await ctx.channel.send(f"This command can only be used by people with the roles {', '.join(PROTECTED_COMMANDS_ALLOWED_ROLES)}")
     
@@ -208,43 +221,30 @@ async def casterofthemonth(ctx, arg):
 async def casterinfo(ctx, arg):
     print(f'{ctx.author.name} sent command !casterinfo {arg}')
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
-        caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
-        casterDict = {}
-        user_found_ID = None
-        async for message in caster_signup_channel.history(limit=None):
-            if user_found_ID != None:
+        # format arg
+        userNameString = arg.lower().strip()
+
+        # read the json store to first match a caster name to ID
+        requestedUser = None
+        for filename in listdir(BROADCASTER_SIGNUPSTORE_DIR):
+            if filename == '.gitignore':
+                continue
+
+            json_Month = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
+            with open(json_Month, 'r') as f:
+                requestedUser = await dutil_find_userID(userNameString, json.load(f), client)
+
+            if requestedUser != None:
                 break
-            if '@' in message.content:
-                user_search = ' '.join(re.findall('<@\d{18}>', message.content))
-                user_search = user_search.replace('<', '').replace('>', '').replace('@', '')
-
-                # add to or update dict
-                for uid in user_search.split():
-                    if user_found_ID == None:
-                        if uid not in casterDict:
-                            try:
-                                casterDict[uid] = await client.fetch_user(int(uid))
-                            except(errors.NotFound):
-                                casterDict[uid] = f'Not Found User ({uid})'
-
-            # if the user we are looking for has been found
-            if user_found_ID == None:
-                for key in casterDict:
-                    if casterDict[key].name.lower() == arg.lower():
-                        # found! now only count for this user
-                        foundVal = casterDict[key]
-                        casterDict.clear()
-                        casterDict[key] = foundVal
-                        user_found_ID = key
-                        break
-        
-        if user_found_ID == None:
-            await ctx.channel.send(f"I could not find a caster with the name {arg}.")
-        else:
-            winnerUser = casterDict[user_found_ID]
-            embed = dutil_build_embed_nomonth((winnerUser, await dutil_count_total_casts(winnerUser.id, client)))
+        # count users broadcasts for that month:
+        if requestedUser:
+            castedCountString = get_total_broadcasts_string(requestedUser.id)
+            embed = await dutil_build_embed(requestedUser, castedCountString, client)
             await ctx.send(embed=embed)
-
+        else:
+            # user not found
+             await ctx.channel.send(f"Ope. I cannot find the user ``{arg}`` in <#{SCHEDULE_CHANNEL_ID}>. ")
+        
 
 
 @client.command(

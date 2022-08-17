@@ -74,7 +74,6 @@ class CSignupEntry:
                 return returnDate
 
 
-
     def __extract_broadcasters(self, rawStr):
 
         producers, colours, playbyplays = (), (), ()
