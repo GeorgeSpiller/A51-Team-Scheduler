@@ -175,9 +175,8 @@ def get_days_scrimming_teams(teams, dayIndex):
 
 
 def next_weekday(d, weekday):
-    ''' KNOWN ISSUES: date not always correct when its into next month
-        This was taken from stack overflow, beacuse who in their right mind wants to deal with dates (not me lol)
-        Should, given a day, return the date of the net occurance of that day.
+    ''' This was taken from stack overflow, beacuse who in their right mind wants to deal with dates (not me lol)
+        Should, given a day, return the date of the next occurance of that day.
     Parameters:
         d : the date to start the search (often the current date)
         weekday : the weekday to search for
@@ -288,7 +287,7 @@ def format_schedule(teamlist):
     # get next weeks (from current date) monday and sunday date 
     d = date.today()
     next_monday = next_weekday(d, 0) # 0 = Monday, 1=Tuesday, 2=Wednesday...
-    next_sunday = next_weekday(d, 6)
+    next_sunday = next_weekday(next_monday, 6)
 
     discord_message_format = f"""
     Week {next_monday.day}/{next_monday.month} - {next_sunday.day}/{next_sunday.month}
