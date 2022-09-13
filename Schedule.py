@@ -4,6 +4,7 @@ from datetime import timedelta, date, datetime
 from json import dumps
 from os import getcwd
 from Constants import *
+from random import choice
 
 
 '''
@@ -190,6 +191,45 @@ def next_weekday(d, weekday):
     return d + timedelta(days_ahead)
 
 
+def fill_schedule_failsafe(order, teams):
+    ''' Fills in and entries or subs in the order list with any available team, reguardless if they're already on the schedule
+        for that week. Seleects team to list at random.
+    Parameters:
+        order   : the current order for the schedule, in order of days, with each day having [main team name, sub team name]
+        teams   : list of all teams with their scrim days list
+    Return:
+        a new order, with any blank or 'No sub' entries replaced with a team, if possible.
+    '''
+
+    for dayIndex, dayEntry in enumerate(order):
+        available_teams = get_days_scrimming_teams(teams, dayIndex)
+        # only continue if there are available teams
+
+        if len(available_teams) <= 0:
+            if len(dayEntry[0]) == 0:
+                order[dayIndex][0] = 'No Stream'
+                continue
+        else:
+            for team in available_teams:
+                if team[0] == dayEntry[0]:
+                    available_teams.remove(team)
+                    break
+            if len(available_teams) == 0:
+                if len(dayEntry[0]) == 0:
+                    order[dayIndex][0] = 'No Stream'
+                continue
+
+        randomAvailableTeam = choice(available_teams)
+        if dayEntry[0] == '':
+            # that day has no team listed, choose a random team from avalable teams
+            order[dayIndex][0] = randomAvailableTeam[0]
+        if dayEntry[1] == 'No sub':
+            # that day has no sub listed
+            order[dayIndex][1] = randomAvailableTeam[0]
+    return order
+
+
+
 def get_schedule(teams):
     ''' Places teams into each day of the week (starting with the day that has the least teams scrimming) based on their score
     Substitue teams are also calculated, but a bit differently. Firstly, once the main teams have been selected and removed from 
@@ -208,6 +248,7 @@ def get_schedule(teams):
     dayOrder = get_day_order(teams)
     final_order = ['', '', '', '', '', '', '']  # placeholders used to ensure teams are kept in the right days
     remainingTeams = teams.copy()   # used as the pool of teams to choose from. Teams chosen will be removed, so coppy list.
+    originalTeams = teams.copy()
 
     for dayIndex, _ in dayOrder:    # list is already sorted, so the 2nd 'number of teams scrimming' value can be ignored
         available_teams = get_days_scrimming_teams(remainingTeams, dayIndex)
@@ -230,8 +271,9 @@ def get_schedule(teams):
         if len(teams) == 1: # if there are no entries for any subs, append 'no subs'
             final_order[i].append("No sub")
 
+    final_order = fill_schedule_failsafe(final_order, originalTeams)
 
-    JSON_DUMP_OBJECT["Future Schedule"] = final_order
+    JSON_DUMP_OBJECT["Future Schedule"] = final_order    
     return final_order
    
 
@@ -302,6 +344,7 @@ def main():
 
     # output the formated schedule
     return format_schedule(order)
+
 
 if __name__ == '__main__':
     print(main())
