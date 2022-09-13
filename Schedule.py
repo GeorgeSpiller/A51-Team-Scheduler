@@ -110,7 +110,7 @@ def get_previous_schedule():
         list of eah day, with spaces removed and in all caps.
     '''
     # open file, read all, format. The split val separates each day
-    with open(PREVIOUS_SCHEDULES_TEXTFILE) as f:
+    with open(PREVIOUS_SCHEDULES_TEXTFILE, encoding="utf8") as f:
         ps = f.readlines()
     return ''.join(ps).replace(' ', '').upper().split('-----------------------------------------')
 

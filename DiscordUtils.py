@@ -14,13 +14,13 @@ def dutil_replace_roleid_with_rolename(message, guild):
         Also removes any roles that are between ~~strikethrough~~ tags'''
     # fist, get a list of all the ID's in the message
     # remove any ID's tht are between ~~strikethrough~~ tags
-    strikethroughs = re.findall('~~<@&\d{18}>\d*.*~~', message)
+    strikethroughs = re.findall('~~<@&\d{18,19}>\d*.*~~', message)
     if strikethroughs:
         for s in strikethroughs:
             message = message.replace(s, '')
 
     # replace all ids with team names
-    rids = re.findall('<@&\d{18}>', message)
+    rids = re.findall('<@&\d{18,19}>', message)
     rids = [i.replace('<@&', '').replace('>', '') for i in rids]
 
     # Get each IDs name, and replace
@@ -96,8 +96,8 @@ async def dutil_write_previous_schedule(guild, textChannel):
     messageList.reverse()
     PREVIOUS_SCHEDULE_STRING = '-----------------------------------------'.join(messageList)
     PREVIOUS_SCHEDULE_STRING = dutil_replace_roleid_with_rolename(PREVIOUS_SCHEDULE_STRING, guild)
-    with open(PREVIOUS_SCHEDULES_TEXTFILE, 'w') as f:
-        f.write(PREVIOUS_SCHEDULE_STRING)
+    with open(PREVIOUS_SCHEDULES_TEXTFILE, 'wb') as f:
+        f.write(PREVIOUS_SCHEDULE_STRING.encode('utf8'))
 
 
 def dutl_dayString_to_dayumber(inp):
