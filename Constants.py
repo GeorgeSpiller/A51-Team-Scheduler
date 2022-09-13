@@ -33,6 +33,8 @@ SPREADSHEET                         = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_UR
 WORKSHEET                           = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
 WORKSHEET_AVAILABLE_CELLFORMAT      = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
 WORKSHEET_NOTAVAILABLE_CELLFORMAT   = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
+SUNDAY_TIMECODE                     = 0
+HAMMERTIME_DIFFERENCE               = 86400
 
 # use the constant cells in the sheets key to deturmine what the format for avaliable and not available is
 AVAILABLE_COLOR                     = cellFormat_to_color(str(WORKSHEET_AVAILABLE_CELLFORMAT))
@@ -77,6 +79,8 @@ NOTAVAILABLE_COLOR                  = {NOTAVAILABLE_COLOR}
 PREVIOUS_SCHEDULES_TEXTFILE         = {PREVIOUS_SCHEDULES_TEXTFILE}
 TEAM_SCHEDULE_INFO_JSONFILE         = {TEAM_SCHEDULE_INFO_JSONFILE}
 JSON_DUMP_OBJECT                    = {JSON_DUMP_OBJECT}
+SUNDAY_TIMECODE                     = {SUNDAY_TIMECODE}
+HAMMERTIME_DIFFERENCE               = {HAMMERTIME_DIFFERENCE}
 
 # ----- DiscordBot.py -----
 ARENA51_GUILD_ID                    = {ARENA51_GUILD_ID}

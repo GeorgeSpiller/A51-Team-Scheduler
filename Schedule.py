@@ -109,10 +109,14 @@ def get_previous_schedule():
     Return:
         list of eah day, with spaces removed and in all caps.
     '''
+    global SUNDAY_TIMECODE
     # open file, read all, format. The split val separates each day
     with open(PREVIOUS_SCHEDULES_TEXTFILE, encoding="utf8") as f:
         ps = f.readlines()
-    return ''.join(ps).replace(' ', '').upper().split('-----------------------------------------')
+    
+    formattedLS = ''.join(ps).replace(' ', '').upper().split('-----------------------------------------')
+    SUNDAY_TIMECODE = int(formattedLS[-1].split('<T:')[1].split(':T>')[0])
+    return formattedLS
 
 
 def calculate_team_scores(teams):
@@ -292,25 +296,25 @@ def format_schedule(teamlist):
     discord_message_format = f"""
     Week {next_monday.day}/{next_monday.month} - {next_sunday.day}/{next_sunday.month}
 
-    Monday scrim 
+    Monday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[0][0]} (sub: {teamlist[0][1]})
     -----------------------------------------
-    Tuesday scrim 
+    Tuesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[1][0]} (sub: {teamlist[1][1]})
     -----------------------------------------
-    Wednesday scrim
+    Wednesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[2][0]} (sub: {teamlist[2][1]})
     -----------------------------------------
-    Thursday scrim 
+    Thursday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[3][0]} (sub: {teamlist[3][1]})
     -----------------------------------------
-    Friday scrim 
+    Friday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[4][0]} (sub: {teamlist[4][1]})
     -----------------------------------------
-    Saturday scrim 
+    Saturday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[5][0]} (sub: {teamlist[5][1]})
     -----------------------------------------
-    Sunday scrim 
+    Sunday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[6][0]} (sub: {teamlist[6][1]})
 
     *Subject to broadcaster availability"""  
@@ -333,6 +337,8 @@ def main():
     # construct schedule
     print('\tConstructing the schedule....')
     order = get_schedule(teams)
+
+    print(SUNDAY_TIMECODE)
 
     # write data to json file
     JSON_DUMP_OBJECT['Date Compiled'] = str(datetime.now())
