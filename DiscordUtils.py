@@ -8,6 +8,7 @@ from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
 from casterSignupEntry import CSignupEntry
 
+#TODO: reduce async querys for dutil_updateall to increase efficency
 
 def dutil_replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
@@ -219,9 +220,9 @@ def dutil_count_broadcasts(jsonDict, userID=None):
 
 
 async def dutil_updateall(client):
-    print(f' ----- Updating all records -----')
     main()
 
+    print('Loading Caster Data:\n\tReading Caster Sign-up...')
     # load all new signup messages into jsons
     caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
     casterIDs = []
@@ -239,7 +240,7 @@ async def dutil_updateall(client):
                 for id in idsInEntry:
                     if id not in casterIDs:
                         casterIDs.append(id)
-
+    print("\tQuerying ID's to names...")
     # get all caster IDs and corresponding names
     for uniqueUserID in casterIDs:
         try:
@@ -247,11 +248,11 @@ async def dutil_updateall(client):
             casterIDsNames[uniqueUserID] = queryUser.name
         except errors.NotFound:
             continue
+    print('\tSaving data...')
     # save all caster IDs and names in json
     with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
         json.dump(casterIDsNames, f)
-    print(f' ----- Finished Updating all records -----')
-
+    print('Finished Loading Caster Data')
 
 
 

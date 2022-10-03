@@ -73,9 +73,6 @@ def get_teams():
         if(is_cell_available(teamCell)):        # if the current team is highlighted as available on sheets,
             team_list_culled.append(team_value) # add to the culled team list
 
-    # print info and log in json file
-    #print(f'There are {len(team_list)} teams total. {len(team_list_culled)} teams are currently on the schedule:')
-    #print([t[0] for t in team_list_culled])
     JSON_DUMP_OBJECT["Teams"] = [t[0] for t in team_list]
     JSON_DUMP_OBJECT["Teams On Schedule"] = [t[0] for t in team_list_culled]
 
@@ -115,7 +112,20 @@ def get_previous_schedule():
         ps = f.readlines()
     
     formattedLS = ''.join(ps).replace(' ', '').upper().split('-----------------------------------------')
-    SUNDAY_TIMECODE = int(formattedLS[-1].split('<T:')[1].split(':T>')[0])
+
+    # Get previouse schedules timecode for Sunday. Used to generate timecodes for upcomming schedule.
+    # If there is a bad read (eg. text in schedule contains <t:##:t>) prompt manual entry
+    if SUNDAY_TIMECODE == 0:
+        try:
+            SUNDAY_TIMECODE = int(formattedLS[-1].split('<T:')[1].split(':T>')[0])
+        except ValueError:
+            print(f'\t--- \n\tError reading timecode for sunday.')
+            try:
+                SUNDAY_TIMECODE = int(input('\tPlease input timecode maunally: ').upper().replace('<T:', '').replace(':T>', ''))
+            except ValueError:
+                print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
+                SUNDAY_TIMECODE = 0
+            print('\t---')
     return formattedLS
 
 
@@ -208,20 +218,18 @@ def fill_schedule_failsafe(order, teams):
         available_teams = get_days_scrimming_teams(teams, dayIndex)
         # only continue if there are available teams
 
-        if len(available_teams) <= 0:
+        if len(available_teams) == 0:
             if len(dayEntry[0]) == 0:
                 order[dayIndex][0] = 'No Stream'
-                continue
+            continue
         else:
             for team in available_teams:
                 if team[0] == dayEntry[0]:
                     available_teams.remove(team)
                     break
             if len(available_teams) == 0:
-                if len(dayEntry[0]) == 0:
-                    order[dayIndex][0] = 'No Stream'
                 continue
-
+        
         randomAvailableTeam = choice(available_teams)
         if dayEntry[0] == '':
             # that day has no team listed, choose a random team from avalable teams
@@ -249,7 +257,7 @@ def get_schedule(teams):
 
     # get a formatted list of scrim days [day, number of active teams] sorted by least to most popular day 
     dayOrder = get_day_order(teams)
-    final_order = ['', '', '', '', '', '', '']  # placeholders used to ensure teams are kept in the right days
+    final_order = [[], [], [], [], [], [], []]  # placeholders used to ensure teams are kept in the right days
     remainingTeams = teams.copy()   # used as the pool of teams to choose from. Teams chosen will be removed, so coppy list.
     originalTeams = teams.copy()
 
@@ -326,9 +334,8 @@ def main():
     '''  produces a stream schedule '''
 
     # get a formatted list of teams [name, bool scrim days...., score]
-    print('--- schedule generation ---\n\tRetrieving teams from Google Sheets...')
+    print('Schedule Generation:\n\tRetrieving teams from Google Sheets...')
     teams = get_teams()
-    # print(str(teams).replace('],', '],\n'))
 
     # calculate team scores
     print('\tCalculating team priority scores...')
@@ -338,14 +345,12 @@ def main():
     print('\tConstructing the schedule....')
     order = get_schedule(teams)
 
-    print(SUNDAY_TIMECODE)
-
     # write data to json file
     JSON_DUMP_OBJECT['Date Compiled'] = str(datetime.now())
     with open(TEAM_SCHEDULE_INFO_JSONFILE, "w") as f:
         f.write(dumps(JSON_DUMP_OBJECT))
 
-    print('\tFinished!\n--- schedule generation ---')
+    print('Schedue Generation Finished.')
 
     # output the formated schedule
     return format_schedule(order)
@@ -353,11 +358,4 @@ def main():
 
 if __name__ == '__main__':
     print(main())
-
-    
-
-
-
-
-
 
