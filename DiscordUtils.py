@@ -241,13 +241,21 @@ async def dutil_updateall(client):
                     if id not in casterIDs:
                         casterIDs.append(id)
     print("\tQuerying ID's to names...")
+
     # get all caster IDs and corresponding names
+    # if casterID not already in file
+    with open(BROADCASTER_ID_TO_NAME_FILE, 'r') as f:
+        savedCasterIDs = json.load(f)
+    
     for uniqueUserID in casterIDs:
-        try:
-            queryUser = await client.fetch_user(int(uniqueUserID))
-            casterIDsNames[uniqueUserID] = queryUser.name
-        except errors.NotFound:
-            continue
+        if uniqueUserID not in savedCasterIDs.keys():
+            try:
+                queryUser = await client.fetch_user(int(uniqueUserID))
+                casterIDsNames[uniqueUserID] = queryUser.name
+            except errors.NotFound:
+                continue
+        else:
+            casterIDsNames[uniqueUserID] = savedCasterIDs[uniqueUserID]
     print('\tSaving data...')
     # save all caster IDs and names in json
     with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
@@ -256,7 +264,8 @@ async def dutil_updateall(client):
 
 
 
-
+def dutil_manualAdd_casterData(casterName, role, numberOfAdditionalHous):
+    pass
 
 
 

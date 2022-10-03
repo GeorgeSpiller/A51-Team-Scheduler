@@ -217,10 +217,11 @@ def fill_schedule_failsafe(order, teams):
     for dayIndex, dayEntry in enumerate(order):
         available_teams = get_days_scrimming_teams(teams, dayIndex)
         # only continue if there are available teams
-
-        if len(available_teams) == 0:
-            if len(dayEntry[0]) == 0:
-                order[dayIndex][0] = 'No Stream'
+        if len(dayEntry) == 0:
+            dayEntry = ['', '']
+        
+        if len(available_teams) == 0 or len(dayEntry[0]) == 0:
+            order[dayIndex][0] = 'No Stream'
             continue
         else:
             for team in available_teams:
@@ -269,7 +270,8 @@ def get_schedule(teams):
             del final_order[dayIndex + 1]
             remainingTeams.remove(available_teams[0])   # remove chosen team from the pool
         else:   # failsafe, if for some reason there are no available teams that scrim on a day, set team name to 'no stream'
-            final_order.insert(dayIndex, [' No Stream'])
+            final_order.insert(dayIndex, ['No Stream'])
+            del final_order[dayIndex + 1]
 
     # calculate the subs.
     # if a team is a sub, then they should be a sub for all days they scrim 
