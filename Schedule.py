@@ -237,6 +237,7 @@ def fill_schedule_failsafe(order, teams):
         if dayEntry[1] == 'No sub':
             # that day has no sub listed
             order[dayIndex][1] = randomAvailableTeam[0]
+        
     return order
 
 
