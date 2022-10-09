@@ -121,7 +121,7 @@ def get_previous_schedule():
         except ValueError:
             print(f'\t--- \n\tError reading timecode for sunday.')
             try:
-                SUNDAY_TIMECODE = int(input('\tPlease input timecode maunally: ').upper().replace('<T:', '').replace(':T>', ''))
+                SUNDAY_TIMECODE = 0 #int(input('\tPlease input timecode maunally: ').upper().replace('<T:', '').replace(':T>', ''))
             except ValueError:
                 print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
                 SUNDAY_TIMECODE = 0

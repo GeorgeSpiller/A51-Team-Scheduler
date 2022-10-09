@@ -13,16 +13,24 @@ class CSignupEntry:
     label_YearMonth = None
     label_YearMonthDay = None
     entrySaveFileName = None
+    ignoreDate = None
 
 
 
-    def __init__(self, rawSignupString, datePosted):
-        
-        self.date = self.__extract_post_date(rawSignupString, datePosted)
-        self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
-        self.label_YearMonth = f'{self.date.year}-{self.date.month}'
-        self.label_YearMonthDay = f'{self.label_YearMonth}-{self.date.day}'
-        self.entrySaveFileName = f'[{self.label_YearMonth}] Broadcaster-Signup-Store.json'
+    def __init__(self, rawSignupString, datePosted, manualAdd=False):
+        self.ignoreDate = manualAdd 
+        if not manualAdd:
+            self.date = self.__extract_post_date(rawSignupString, datePosted)
+            self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
+            self.label_YearMonth = f'{self.date.year}-{self.date.month}'
+            self.label_YearMonthDay = f'{self.label_YearMonth}-{self.date.day}'
+            self.entrySaveFileName = f'[{self.label_YearMonth}] Broadcaster-Signup-Store.json'
+        else:
+            self.entrySaveFileName = f'[{str(hash(self))[:5]}] Manual Broadcaster-Signup-Store.json'
+            self.date = datePosted
+            self.prods, self.cols, self.pbps = self.__extract_broadcasters(rawSignupString)
+            self.label_YearMonth = f'{self.date.year}-{self.date.month}'
+            self.label_YearMonthDay = f'{self.label_YearMonth}-{self.date.day}'
 
 
     def __repr__(self):
@@ -38,7 +46,10 @@ class CSignupEntry:
  
 
     def __hash__(self):
-        return hash((self.date, self.prods, self.cols, self.pbps))
+        if self.ignoreDate:
+            return hash((datetime.now(), self.prods, self.cols, self.pbps))
+        else:
+            return hash((self.date, self.prods, self.cols, self.pbps))
 
 
     def __extract_post_date(self, rawSignupString, datePosted):
@@ -85,13 +96,12 @@ class CSignupEntry:
             producers = tuple([ps.replace('<', '').replace('>', '').replace('@', '') for ps in producer_search.split()])
         
         if caster_pbp_search:
-            colours = tuple([pbps.replace('<', '').replace('>', '').replace('@', '') for pbps in caster_pbp_search.split()])
+            playbyplays = tuple([pbps.replace('<', '').replace('>', '').replace('@', '') for pbps in caster_pbp_search.split()])
 
         if caster_col_search:
-            playbyplays = tuple([cols.replace('<', '').replace('>', '').replace('@', '') for cols in caster_col_search.split()])
+            colours = tuple([cols.replace('<', '').replace('>', '').replace('@', '') for cols in caster_col_search.split()])
 
         # can get user names here from userID's if needed
-
         return producers, colours, playbyplays
 
 
@@ -106,6 +116,8 @@ class CSignupEntry:
                 monthDict = json.load(f)
 
         selfSaveData = vars(self)
+        del selfSaveData['label_YearMonth']
+        del selfSaveData['entrySaveFileName']
         selfSaveData['date'] = self.date.isoformat()
         monthDict[self.label_YearMonthDay] = selfSaveData
         

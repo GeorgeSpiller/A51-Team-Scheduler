@@ -7,8 +7,8 @@ from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
 from casterSignupEntry import CSignupEntry
+from requests import get
 
-#TODO: reduce async querys for dutil_updateall to increase efficency
 
 def dutil_replace_roleid_with_rolename(message, guild):
     '''replaces any instances of role ID tags with the role corrisponding role's name.
@@ -75,12 +75,14 @@ async def dutil_build_embed(user, scoreString, client, month=None, arg=None, cas
             description=f"{user.display_name}, joined at {joinedAtDate}. {member.top_role}.", 
             color=Color.blue())
 
+
+
     embed.set_author(
         name=user.display_name, 
-        icon_url=user.avatar_url)
+        icon_url=user.avatar.url)
 
     embed.set_thumbnail(
-        url=user.avatar_url
+        url=user.avatar.url
     )
 
     embed.add_field(name=f"Total stats:", 
@@ -124,7 +126,7 @@ def dutl_dayString_to_dayumber(inp):
     return inp
 
 
-def get_total_broadcasts_string(userID):
+def dutl_get_total_broadcasts_string(userID):
     count_prod, count_col, count_pbp, count_total = 0, 0, 0, 0
     for filename in listdir(BROADCASTER_SIGNUPSTORE_DIR):
         if filename == '.gitignore':
@@ -148,23 +150,47 @@ def get_total_broadcasts_string(userID):
     return castedCountString
 
 
+def dutil_merge_count_broadcasts_dicts(dict1, dict2):
+    if dict1 == {} or dict1 == None:
+        return dict2
+    if dict2 == {} or dict2 == None:
+        return dict1
+    
+    newDict = dict1
+    for key in dict2:
+        if key in newDict.keys():
+            newDict[key]['prods'] += dict2[key]['prods']
+            newDict[key]['cols'] += dict2[key]['cols']
+            newDict[key]['pbps'] += dict2[key]['pbps']
+            newDict[key]['total'] += dict2[key]['total']
+        else:
+            newDict[key] = dict2[key]
+    return newDict
+
+
 def dutil_get_mostFrequent_broadcasters(month, casterType):
+    count_month = {}
     for filename in listdir(BROADCASTER_SIGNUPSTORE_DIR):
         if filename == '.gitignore':
             continue
+        json_MonthFile = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
         fileNameMonth = int(filename.split()[0].replace('[', '').replace(']', '').replace(str(datetime.now().year), '').replace('-', ''))
         if fileNameMonth == int(month):
-            json_MonthFile = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
             with open(json_MonthFile, 'r') as f:
-                count_month = dutil_count_broadcasts(json.load(f))
+                count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
 
-            # get caster with the most total casts
-            currentMax = list(count_month.keys())[0]
-            for userID in count_month.keys():
-                if count_month[userID][f'{casterType}s'] > count_month[currentMax][f'{casterType}s']:
-                    currentMax = userID
-
-            return {currentMax : count_month[currentMax]}
+        else:
+            # count entries in all manual entry files
+            if 'Manual' in filename:
+                with open(json_MonthFile, 'r') as f:
+                    count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
+    
+    # get caster with the most total casts
+    currentMax = list(count_month.keys())[0]
+    for userID in count_month.keys():
+        if count_month[userID][f'{casterType}s'] > count_month[currentMax][f'{casterType}s']:
+            currentMax = userID
+    return {currentMax : count_month[currentMax]}
 
 
 def dutil_get_all_casterIDs(jsonDict):
@@ -193,21 +219,20 @@ def dutil_count_broadcasts(jsonDict, userID=None):
     count_col = 0
     count_pbp = 0 
     count_total = 0
-    oneCastPerDay = False
     counts = {}
     if userID != None:
         for k in jsonDict.keys(): # for each day
-            oneCastPerDay = False
+            oneCastPerDayFalg = False
             if str(userID) in jsonDict[k]['prods']:
-                count_prod += 1
-                oneCastPerDay = True
+                count_prod += len(jsonDict[k]['prods'])
+                oneCastPerDayFalg = True
             if str(userID) in jsonDict[k]['cols']:
-                count_col += 1
-                oneCastPerDay = True
+                count_col += len(jsonDict[k]['cols'])
+                oneCastPerDayFalg = True
             if str(userID) in jsonDict[k]['pbps']:
-                count_pbp += 1
-                oneCastPerDay = True
-            if oneCastPerDay:
+                count_pbp += len(jsonDict[k]['pbps'])
+                oneCastPerDayFalg = True
+            if oneCastPerDayFalg:
                 count_total += 1
         counts[str(userID)] = { 'prods' : count_prod, 'cols' : count_col, 'pbps' : count_pbp, 'total' : count_total }
     else:
@@ -215,7 +240,6 @@ def dutil_count_broadcasts(jsonDict, userID=None):
             casterIDs = dutil_get_all_casterIDs(jsonDict)
             for id in casterIDs:
                 counts[str(id)] = dutil_count_broadcasts(jsonDict, id)[str(id)]
-        
     return counts
 
 
@@ -263,10 +287,61 @@ async def dutil_updateall(client):
     print('Finished Loading Caster Data')
 
 
+def dutil_manualAdd_casterData(casterName, role, daysCasted):
+    
+    # get caster name
+    with open(BROADCASTER_ID_TO_NAME_FILE, 'r') as f:
+        savedCasterIDs = json.load(f)
+    
+    casterID = None
 
-def dutil_manualAdd_casterData(casterName, role, numberOfAdditionalHous):
+    for key in savedCasterIDs:
+        if savedCasterIDs[key] == casterName:
+            casterID = key
+            break
+    
+    if casterID == None:
+        # caster name parameter not found, throw
+        print(f'caster: {casterName} not found.')
+        raise ValueError()
+
+    # construct raw message to be parsed and saved
+    postDate = date.today()
+    dayAsString = postDate.strftime('%A')
+
+    prodID, colID, pbpID = '', '', ''
+    if role == 'prod':
+        prodID = f' <@{casterID}>'
+    elif role == 'col':
+        colID = f' <@{casterID}>'
+    elif role == 'pbp':
+        pbpID = f' <@{casterID}>'
+    else:
+        # throw error
+        print(f'role: {role} not found.')
+        raise ValueError()
+
+    rawMessageString = f'**{dayAsString}:**\nProduction/Observer(🎥):{prodID}\nPlay-By-Play(🎙):{pbpID}\nColour(🔬):{colID}'
+    entry = CSignupEntry(rawMessageString*daysCasted, postDate, manualAdd=True)
+    entry.save()
     pass
 
 
+def dutil_verifyFile(attachmentURL):
+    file_request = get(attachmentURL)
+    print(file_request.content)
 
 
+
+
+
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    pass
