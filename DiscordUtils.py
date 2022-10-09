@@ -2,12 +2,13 @@ import json
 import re
 from os import getcwd, listdir, path
 from discord.ext import commands
-from discord import Embed, Color, errors
+from discord import Embed, Color, Member, errors, Forbidden, HTTPException
 from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
 from casterSignupEntry import CSignupEntry
-from requests import get
+from requests import get as request_get
+from discord.utils import get as dutils_get
 
 
 def dutil_replace_roleid_with_rolename(message, guild):
@@ -327,20 +328,72 @@ def dutil_manualAdd_casterData(casterName, role, daysCasted):
     pass
 
 
-def dutil_verifyFile(attachmentURL):
-    file_request = get(attachmentURL)
-    print(file_request.content)
+def dutil_loadFile(attachmentURL):
+    file_request = request_get(attachmentURL)
+    discordNames = file_request.content.decode("utf-8") 
+    if ',' in discordNames:
+        discordNames = discordNames.strip().replace('\r', '').split(',')
+    elif '\n' in discordNames:
+        discordNames = discordNames.strip().replace('\r', '').split('\n')
+    else:
+        raise UndefinedSeporator()
+
+    return discordNames
 
 
+def dutils_roleExists(guild, roleName):
+    role = None
+    role = dutils_get(guild.roles, name=roleName)
+    if role != None:
+        return role
+    else:
+        raise RoleNotFound(roleName, guild.name)
 
 
+async def dutils_bulkAssignRoles(guild, discordUsernameList, role):
+    roleAssignResults = {
+        'AssignmentError' : [],
+        'MembersNotFoundInGuild' : [],
+        'SucessfulAssignment': []
+        }
+    discordUsernameList = [x.strip() for x in discordUsernameList]
+    for member in guild.members:
+        memberNameString = f'{member.name}#{member.discriminator}'
+        if memberNameString in discordUsernameList:
+            try:
+                await member.add_roles(role, reason='Added via A51-Team-Schedule Bot via BulkAdd command.')
+                roleAssignResults['SucessfulAssignment'].append(member.name)
+            except (Forbidden, HTTPException) as e:
+                 roleAssignResults['AssignmentError'].append(member.name)
+            discordUsernameList.remove(memberNameString)
+    
+    roleAssignResults['MembersNotFoundInGuild'] = discordUsernameList
+    return roleAssignResults
 
 
+class DiscordUtilError(Exception):
+    """Base class for DiscordUtil exceptions"""
+    pass
 
 
+class UndefinedSeporator(DiscordUtilError):
+    """"""
+    def __init__(self, message=f"There is a missing or incorrect separator used in file. Please use commas or newlines to separate discord usernames."):
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f'{self.message}'
 
 
+class RoleNotFound(DiscordUtilError):
+    """"""
+    def __init__(self, roleStr, guildStr, message=f"Could not find the role "):
+        self.message = f'{message} `{roleStr}` in guild `{guildStr}`. Please check it matches exactly.'
+        super().__init__(self.message)
 
+    def __str__(self):
+        return f'{self.message}'
 
 
 if __name__ == '__main__':
