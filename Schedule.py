@@ -126,8 +126,6 @@ def get_previous_schedule():
                 print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
                 SUNDAY_TIMECODE = 0
             print('\t---')
-        finally:
-            print(f"[DEBUG schedule.py 130] sunday read timecode: {SUNDAY_TIMECODE} ")
     return formattedLS
 
 

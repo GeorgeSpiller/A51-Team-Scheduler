@@ -1,5 +1,5 @@
 import json
-from os import getcwd
+from os import getcwd, path
 import traceback
 from discord.ext import commands
 from discord import Intents, utils
@@ -9,19 +9,19 @@ from Constants import *
 from DiscordUtils import *
 
 
-
 # firstly, load data
 def load_data():
     global glob_data
     global glob_tocken
-    print('\tReading previous schedule data...')
+    print_log('Reading previous schedule data')
     TEAM_SCHEDULE_INFO_JSONFILE = f'{getcwd()}\\data\\ScheduleInfo.json'
     with open(TEAM_SCHEDULE_INFO_JSONFILE, 'r') as f:
         glob_data = json.load(f)   
-    print('\tReading bot token...')
+    print_log('Reading bot token')
     DISCORD_BOT_TOKEN_TEXTFILE = f'{getcwd()}\\auth\\diecordbottoken.txt'
     with open(DISCORD_BOT_TOKEN_TEXTFILE, 'r') as f:
         glob_tocken = f.readline() 
+
 
 print(' ----- Preparing Bot -----')
 utils.setup_logging()
@@ -45,20 +45,19 @@ async def on_ready():
     for guild in client.guilds:
         for textChannel in guild.text_channels:
             if textChannel.id == SCHEDULE_CHANNEL_ID:
-                print('\tSaving previous schedules...')
+                print_log('Saving previous schedules')
                 await dutil_write_previous_schedule(guild, textChannel)
                 break
         joinedServers.append(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:
-            print(f'\tleaving server: {guild.name} ({guild.id})')
+            print_log(f'leaving server: {guild.name} ({guild.id})')
             await client.get_guild(int(guild.id)).leave()
     # await dutil_updateall(client)
-    print('\tlogged in as {0.user}, connected to the following servers:'.format(client))
-    print('\t' + ', '.join(joinedServers))
+    print_log('logged in as {0.user}, connected to the following servers:'.format(client))
+    print_log(', '.join(joinedServers))
     print(' ----- Finished Bot Preperation ----- ')
 
 
-@dutil_logFunction
 @client.command(
     # ADDS THIS VALUE TO THE a/HELP PRINT MESSAGE.
 	help="Gives a list of all the teams that are currently affiliated with Arena 51!",
@@ -67,7 +66,7 @@ async def on_ready():
     aliases=['ft', 'fulteams', 'fullteam', 'fulteam', 'fteams', 'fteam']
 )
 async def fullteams(ctx):
-    print(f'{ctx.author.name} sent command a/fullteams')
+    print_command('a/fullteams', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
 	    await ctx.channel.send(f"The full team list is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(glob_data['Teams'])}```")
@@ -81,7 +80,7 @@ async def fullteams(ctx):
     aliases=['at', 'ateam', 'ateams', 'activet', 'activeteam', 'acteams']
 )
 async def activeteams(ctx):
-    print(f'{ctx.author.name} sent command a/activeteams')
+    print_command('a/activeteams', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
 	    await ctx.channel.send(f"The full list of teams that are currently on the stream schedule is bellow, last updated on ``{LAST_UPDATED_STRING}``:\n```{', '.join(glob_data['Teams On Schedule'])}```")
@@ -95,7 +94,7 @@ async def activeteams(ctx):
     aliases=['tp', 'tpriority', 'teamp', 'teampri', 'teampriorities']
 )
 async def teampriority(ctx, arg):
-    print(f'{ctx.author.name} sent command a/teampriority {arg}')
+    print_command(f'a/teampriority {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     global glob_data
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         userInputTeamName = arg.upper().strip()
@@ -121,7 +120,7 @@ async def teampriority(ctx, arg):
     aliases=['wso', 'whoso', 'whoscrimo', 'whoscrimso', 'wscrimo']
 )
 async def whoscrimson(ctx, arg):
-    print(f'{ctx.author.name} sent command a/whoscrimson {arg}')
+    print_command(f'a/whoscrimson {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         processedInput = arg[:2].lower()
         processedInput = dutl_dayString_to_dayumber(processedInput)
@@ -144,7 +143,7 @@ async def whoscrimson(ctx, arg):
     aliases=['upd', 'refresh', 'reload']
 )
 async def update(ctx):
-    print(f'{ctx.author.name} sent command a/update')
+    print_command(f'a/update', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         await ctx.channel.send(f"Updating information. This may take a moment....")
         await dutil_updateall(client)
@@ -169,7 +168,7 @@ async def update(ctx):
     aliases=['gen']
 )
 async def generate(ctx):
-    print(f'{ctx.author.name} sent command a/generate')
+    print_command(f'a/generate', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         await ctx.channel.send(f"Aye Aye Captain!")
         newSchedule = main()
@@ -186,7 +185,7 @@ async def generate(ctx):
     aliases=['cotm', 'prodofthemonth']
 )
 async def casterofthemonth(ctx, arg):
-    print(f'{ctx.author.name} sent command a/casterofthemonth')
+    print_command(f'a/casterofthemonth {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         if arg != "prod" and arg != "pbp" and arg != "col":
             await ctx.channel.send(f"Unrecognised argument ``{arg}``! Please use iether: ``prod``, ``pbp`` or ``col``.")
@@ -213,7 +212,7 @@ async def casterofthemonth(ctx, arg):
     aliases=['ci'] 
 )
 async def casterinfo(ctx, arg):
-    print(f'{ctx.author.name} sent command a/casterinfo {arg}')
+    print_command(f'a/casterinfo {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         # format arg
         userNameString = arg.lower().strip()
@@ -245,7 +244,7 @@ async def casterinfo(ctx, arg):
     aliases=['maddci'] 
 )
 async def manualAddCasterinfo(ctx, *arg):
-    print(f'{ctx.author.name} sent command a/manualAddCasterinfo {arg}')
+    print_command(f'a/manualAddCasterinfo {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         try:
             cName = arg[0]
@@ -267,7 +266,7 @@ async def manualAddCasterinfo(ctx, *arg):
     aliases=['bulkar', 'bar', 'bulkasign'] 
 )
 async def bulkAssignRoles(ctx, arg):
-    print(f'{ctx.author.name} sent command a/bulkRoles_ProcessFile {arg}')
+    print_command(f'a/bulkAssignRoles {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         try:
             attachment_url = ctx.message.attachments[0].url

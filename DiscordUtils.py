@@ -8,13 +8,18 @@ from Constants import *
 from casterSignupEntry import CSignupEntry
 from requests import get as request_get
 from discord.utils import get as dutil_get
+from bColors import bc
+from __main__ import __file__
 
 
+# logging progress
+def print_log(mesage):
+    print(f'{bc.GREY}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.CYAN}SETUP{bc.ENDC}{bc.PURPLE}\t{path.basename(__file__)}{bc.ENDC} {mesage}')
 
 
-def dutil_logFunction(func):
-    #print(f'Function object: {func}')
-    return func
+def print_command(cmd, user, guild, channel):
+    print(f'{bc.GREY}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.GREEN}COMMAND{bc.ENDC}{bc.PURPLE}\t{cmd}{bc.ENDC} Sent by {bc.BOLD}{user}{bc.ENDC} in {bc.BOLD}{guild}: #{channel}{bc.ENDC}')
+
 
 
 def dutil_replace_roleid_with_rolename(message, guild):
