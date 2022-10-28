@@ -126,6 +126,8 @@ def get_previous_schedule():
                 print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
                 SUNDAY_TIMECODE = 0
             print('\t---')
+        finally:
+            print(f"[DEBUG schedule.py 130] sunday read timecode: {SUNDAY_TIMECODE} ")
     return formattedLS
 
 
@@ -307,25 +309,25 @@ def format_schedule(teamlist):
     discord_message_format = f"""
     Week {next_monday.day}/{next_monday.month} - {next_sunday.day}/{next_sunday.month}
 
-    Monday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Monday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
     @{teamlist[0][0]} (sub: {teamlist[0][1]})
     -----------------------------------------
-    Tuesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Tuesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 2)}:t>
     @{teamlist[1][0]} (sub: {teamlist[1][1]})
     -----------------------------------------
-    Wednesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Wednesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 3)}:t>
     @{teamlist[2][0]} (sub: {teamlist[2][1]})
     -----------------------------------------
-    Thursday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Thursday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 4)}:t>
     @{teamlist[3][0]} (sub: {teamlist[3][1]})
     -----------------------------------------
-    Friday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Friday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 5)}:t>
     @{teamlist[4][0]} (sub: {teamlist[4][1]})
     -----------------------------------------
-    Saturday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Saturday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 6)}:t>
     @{teamlist[5][0]} (sub: {teamlist[5][1]})
     -----------------------------------------
-    Sunday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
+    *Sunday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 7)}:t>
     @{teamlist[6][0]} (sub: {teamlist[6][1]})
 
     *Subject to broadcaster availability"""  

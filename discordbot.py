@@ -1,15 +1,13 @@
 import json
-import re
-from os import getcwd, listdir, path
+from os import getcwd
 import traceback
-from typing import final
 from discord.ext import commands
-from discord import Embed, Color, errors, Intents
+from discord import Intents, utils
 from datetime import datetime
 from Schedule import get_teams, get_days_scrimming_teams, main
 from Constants import *
 from DiscordUtils import *
-from casterSignupEntry import CSignupEntry
+
 
 
 # firstly, load data
@@ -26,6 +24,7 @@ def load_data():
         glob_tocken = f.readline() 
 
 print(' ----- Preparing Bot -----')
+utils.setup_logging()
 load_data()
 global glob_data
 global glob_tocken
@@ -42,13 +41,12 @@ client = commands.Bot(intents=intents, command_prefix='a/')
 
 @client.event
 async def on_ready():
-    # load_data()
     joinedServers = []
     for guild in client.guilds:
         for textChannel in guild.text_channels:
             if textChannel.id == SCHEDULE_CHANNEL_ID:
-                print('\tReading previous schedules...')
-                # await dutil_write_previous_schedule(guild, textChannel)
+                print('\tSaving previous schedules...')
+                await dutil_write_previous_schedule(guild, textChannel)
                 break
         joinedServers.append(f'{guild.name} ({guild.id})')
         if guild.id not in ALLOWED_SERVERS:
@@ -60,6 +58,7 @@ async def on_ready():
     print(' ----- Finished Bot Preperation ----- ')
 
 
+@dutil_logFunction
 @client.command(
     # ADDS THIS VALUE TO THE a/HELP PRINT MESSAGE.
 	help="Gives a list of all the teams that are currently affiliated with Arena 51!",
@@ -149,7 +148,14 @@ async def update(ctx):
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         await ctx.channel.send(f"Updating information. This may take a moment....")
         await dutil_updateall(client)
+        for guild in client.guilds:
+            for textChannel in guild.text_channels:
+                if textChannel.id == SCHEDULE_CHANNEL_ID:
+                    print('\tSaving previous schedules...')
+                    await dutil_write_previous_schedule(guild, textChannel)
+                    break
         load_data()
+        
         print('Updating Finished.')
         await ctx.channel.send(f"Bot records have been updated!")
 
@@ -266,8 +272,8 @@ async def bulkAssignRoles(ctx, arg):
         try:
             attachment_url = ctx.message.attachments[0].url
             discordNames = dutil_loadFile(attachment_url)
-            discordRole = dutils_roleExists(ctx.message.guild, arg)
-            results = await dutils_bulkAssignRoles(ctx.message.guild, discordNames, discordRole)
+            discordRole = dutil_roleExists(ctx.message.guild, arg)
+            results = await dutil_bulkAssignRoles(ctx.message.guild, discordNames, discordRole)
             await ctx.channel.send(f"""Role assignments processed.
             Members who have been sucessfully given the {arg} role: \n```{results['SucessfulAssignment']}```
             

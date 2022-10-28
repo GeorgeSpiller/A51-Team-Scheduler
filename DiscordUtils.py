@@ -1,14 +1,20 @@
 import json
 import re
-from os import getcwd, listdir, path
-from discord.ext import commands
-from discord import Embed, Color, Member, errors, Forbidden, HTTPException
+from os import listdir, path
+from discord import Embed, Color, errors, Forbidden, HTTPException
 from datetime import datetime
-from Schedule import get_teams, get_days_scrimming_teams, main
+from Schedule import main
 from Constants import *
 from casterSignupEntry import CSignupEntry
 from requests import get as request_get
-from discord.utils import get as dutils_get
+from discord.utils import get as dutil_get
+
+
+
+
+def dutil_logFunction(func):
+    #print(f'Function object: {func}')
+    return func
 
 
 def dutil_replace_roleid_with_rolename(message, guild):
@@ -341,16 +347,16 @@ def dutil_loadFile(attachmentURL):
     return discordNames
 
 
-def dutils_roleExists(guild, roleName):
+def dutil_roleExists(guild, roleName):
     role = None
-    role = dutils_get(guild.roles, name=roleName)
+    role = dutil_get(guild.roles, name=roleName)
     if role != None:
         return role
     else:
         raise RoleNotFound(roleName, guild.name)
 
 
-async def dutils_bulkAssignRoles(guild, discordUsernameList, role):
+async def dutil_bulkAssignRoles(guild, discordUsernameList, role):
     roleAssignResults = {
         'AssignmentError' : [],
         'MembersNotFoundInGuild' : [],
