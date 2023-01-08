@@ -1,8 +1,10 @@
+import datetime
 from twitchAPI.twitch import Twitch, AuthScope
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.types import VideoType
 from twitchAPI.helper import first
 import asyncio
+from dateutil.relativedelta import relativedelta
 
 # ----- ClipsToYoutube -----
 DEFAULT_TOKEN_FILE_LOCATION         = "D:\\Users\\geosp\\Documents\\Code\\PY\\Projects\\A51 Team Scheduler\\ClipsToYoutube\\tokens.txt"
@@ -42,8 +44,8 @@ class twitchUtils:
         user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
         # dict of [clip ID] : (title, url)
         clipDict = {}
-        async for clip in self.twitch.get_clips(user.id):
-            # print( f"clip({clip.title} : {clip.duration}, id: {clip.id}, url: {clip.url})" )
+        after_date = datetime.datetime.now() - relativedelta(months=1)
+        async for clip in self.twitch.get_clips(user.id, ended_at=datetime.datetime.now(), started_at=after_date):   # have to include before, as by default it returns in order of views
             if (clip.title == title_or_clipID or clip.id == title_or_clipID):
                 break
             clipDict[clip.id] = clip
@@ -72,7 +74,8 @@ class twitchUtils:
             lastStreamID = f.readline()
         with open( DEFAULT_LASTSTREAMID_FILE_LOCATION, 'w') as f:
             # update the txt file to now have the most recent streamID as its 'most recently processed clip'
-            f.write(firstStreamID)
+            print("This is a remonder to uncommend line ~76 in A51_Twitch.py (to re-write the most recently processed stream)")
+            #f.write(firstStreamID)
         return (firstStreamID, lastStreamID)
 
 
@@ -84,9 +87,10 @@ class twitchUtils:
         fistClipID = fistClipID.id
         with open( DEFAULT_LASTCLIPID_FILE_LOCATION, 'r') as f:
             lastClipID = f.readline()
-        with open( DEFAULT_LASTCLIPID_FILE_LOCATION, 'w') as f:
+        #with open( DEFAULT_LASTCLIPID_FILE_LOCATION, 'w') as f:
             # update the txt file to now have the most recent clipID as its 'most recently processed clip'
-            f.write(fistClipID)
+        print("This is a reminder to uncommend line ~91  in A51_Twitch.py (to re-write the most recently processed clip)")
+            #f.write(fistClipID)
         return (fistClipID, lastClipID)
 
 

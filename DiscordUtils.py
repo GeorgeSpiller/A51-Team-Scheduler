@@ -15,11 +15,11 @@ from ClipsToYoutube.A51_Twitch import *
 
 # logging progress
 def print_log(mesage):
-    print(f'{bc.GREY}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.CYAN}SETUP{bc.ENDC}{bc.PURPLE}\t{path.basename(__file__)}{bc.ENDC} {mesage}')
+    print(f'{bc.GREY}{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.CYAN}SETUP{bc.ENDC}{bc.PURPLE}\t{path.basename(__file__)}{bc.ENDC} {mesage}')
 
 
 def print_command(cmd, user, guild, channel):
-    print(f'{bc.GREY}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.GREEN}COMMAND{bc.ENDC}{bc.PURPLE}\t{cmd}{bc.ENDC} Sent by {bc.BOLD}{user}{bc.ENDC} in {bc.BOLD}{guild}: #{channel}{bc.ENDC}')
+    print(f'{bc.GREY}{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}{bc.ENDC} {bc.GREEN}COMMAND{bc.ENDC}{bc.PURPLE}\t{cmd}{bc.ENDC} Sent by {bc.BOLD}{user}{bc.ENDC} in {bc.BOLD}{guild}: #{channel}{bc.ENDC}')
 
 
 
@@ -65,7 +65,7 @@ async def dutil_build_embed(user, scoreString, client, month=None, arg=None, cas
 
     # construct embed
     if month != None and arg != None and casterMonthStats != None:
-        datetime_object = datetime.strptime(str(month), "%m")
+        datetime_object = datetime.datetime.strptime(str(month), "%m")
         full_month_name = datetime_object.strftime("%B")
         arg.replace('prod', 'Producer')
         arg.replace('col', 'Colour Caster')
@@ -187,7 +187,7 @@ def dutil_get_mostFrequent_broadcasters(month, casterType):
         if filename == '.gitignore':
             continue
         json_MonthFile = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
-        fileNameMonth = int(filename.split()[0].replace('[', '').replace(']', '').replace(str(datetime.now().year), '').replace('-', ''))
+        fileNameMonth = int(filename.split()[0].replace('[', '').replace(']', '').replace(str(datetime.datetime.now().year), '').replace('-', ''))
         if fileNameMonth == int(month):
             with open(json_MonthFile, 'r') as f:
                 count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
@@ -265,7 +265,7 @@ async def dutil_updateall(client):
     casterIDs = []
     casterIDsNames = {}
     # bot starts posting at/or/after roughly  01/2022. Changes to the bot were made 11/2022
-    async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 11, 1)):
+    async for message in caster_signup_channel.history(limit=None, after=datetime.datetime(2022, 11, 1)):
         # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
         if message.author.bot:
             discordRoles = ['<@&913494942511431681>', '@DiamondPack', '<@&763408133736366142>', '<@&808742990868512849>', '<@913494942511431681>', '<@763408133736366142>', '<@808742990868512849>']
@@ -413,18 +413,32 @@ async def dutil_post_unprocessed_clips(ctx, twitchProcessor):
             await recentMessage.add_reaction(emoji)
 
 # Add func here to check for processing clips that have been posted
-"""
-foreach message in channel that has been sent by you, the bot
-    IF ✅>❌ and message.datePosted > a week from Datetime.now
-        save url thats in message
-        download clip using url
-        move clip download into the input for the processing folder OR send clip path directly to video processing py
-        add clip to list of 'about to be processed' clips
-        delete message
-run py process clips, make sure output is clear
-for each clip in output:
-    post to YT
-"""
+
+async def dutil_process_pending_clips(client):
+    # foreach message in channel that has been sent by you, the bot
+    pending_clips_channel = client.get_channel(CLIPSTOYT_VOTE_CHANNEL_ID)
+    async for message in pending_clips_channel.history(limit=None, after=datetime.datetime(2022, 12, 1), oldest_first = False):
+        if message.author.bot and contains_url(message.content):
+            # IF ✅>❌ and message.datePosted > a week from Datetime.now
+            for r in message.reactions:
+                print(r.emoji)
+            print(list(message.reactions)) # (list(filter( lambda emoji:  emoji == CLIPSTOYT_VOTE_EMOJIS[1], message.reactions)))
+            #print(f"message {message.content} has {yes_react} yea and {no_react} no")
+        # save url thats in message
+        # download clip using url
+        # move clip download into the input for the processing folder OR send clip path directly to video processing py
+        # add clip to list of 'about to be processed' clips
+        # delete message
+    # run py process clips, make sure output is clear
+    # for each clip in output:
+    # post to YT
+    pass
+
+
+def contains_url(inputStr):
+    if ("https://" in inputStr):
+        return True
+    return False
 
 
 class DiscordUtilError(Exception):
