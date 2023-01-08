@@ -13,7 +13,7 @@ class bc:
 if __name__ == '__main__':
     print(f''' 
     {bc.GREY} GREY {bc.ENDC}
-    {bc.DARK_BLUE} DARK_BLUE {bc.ENDC}
+    {bc.DARK_BLUE} DARK_BLUE {bc.ENDC}  
     {bc.CYAN} CYAN {bc.ENDC}
     {bc.PURPLE} PURPLE {bc.ENDC}
     {bc.GREEN} GREEN {bc.ENDC}

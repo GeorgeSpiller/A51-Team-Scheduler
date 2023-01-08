@@ -11,8 +11,11 @@ gspread = "*"
 gspread-formatting = "*"
 "discord.py" = "*"
 requests = "*"
+twitchapi = "*"
+typing-extensions = "*"
+python-dateutil = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.9"
+python_version = "3.11"

@@ -2,7 +2,7 @@ import json
 import re
 from os import listdir, path
 from discord import Embed, Color, errors, Forbidden, HTTPException
-from datetime import datetime
+from datetime import datetime, timedelta
 from Schedule import main
 from Constants import *
 from casterSignupEntry import CSignupEntry
@@ -10,6 +10,7 @@ from requests import get as request_get
 from discord.utils import get as dutil_get
 from bColors import bc
 from __main__ import __file__
+from ClipsToYoutube.A51_Twitch import *
 
 
 # logging progress
@@ -263,19 +264,23 @@ async def dutil_updateall(client):
     caster_signup_channel = client.get_channel(CASTERSIGNUP_CHANNEL_ID)
     casterIDs = []
     casterIDsNames = {}
-    # bot starts posting at/or/after roughly  01/2022
-    async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 1, 1)):
+    # bot starts posting at/or/after roughly  01/2022. Changes to the bot were made 11/2022
+    async for message in caster_signup_channel.history(limit=None, after=datetime(2022, 11, 1)):
         # add as entry only if the 'role' @'s are not in the message (ie, the message is a day broacasters can react to)
         if message.author.bot:
             discordRoles = ['<@&913494942511431681>', '@DiamondPack', '<@&763408133736366142>', '<@&808742990868512849>', '<@913494942511431681>', '<@763408133736366142>', '<@808742990868512849>']
             if (not any(role in message.content for role in discordRoles)):
                 entry = CSignupEntry(message.content, message.created_at)
-                entry.save()
-                idsInEntry = [entry.prods, entry.cols, entry.pbps]
-                idsInEntry = [item for sublist in idsInEntry for item in sublist]
-                for id in idsInEntry:
-                    if id not in casterIDs:
-                        casterIDs.append(id)
+                # if the post day is the same dayy as we have gone live on twitch
+                if(await dutil_hasStreamedSameDay(client, entry.date)):
+                    # add to entry store
+                    entry.save()
+                    print(f"[{entry.label_YearMonthDay}] (prod: {entry.prods}, pbp: {entry.pbps}, col:{entry.cols})")
+                    idsInEntry = [entry.prods, entry.cols, entry.pbps]
+                    idsInEntry = [item for sublist in idsInEntry for item in sublist]
+                    for id in idsInEntry:
+                        if id not in casterIDs:
+                            casterIDs.append(id)
     print("\tQuerying ID's to names...")
 
     # get all caster IDs and corresponding names
@@ -297,6 +302,20 @@ async def dutil_updateall(client):
     with open(BROADCASTER_ID_TO_NAME_FILE, 'w') as f:
         json.dump(casterIDsNames, f)
     print('Finished Loading Caster Data')
+
+
+async def dutil_hasStreamedSameDay(client, dateToQuery):
+    media_channel = client.get_channel(MEDIA_CHANNEL_ID)
+    fromDate = dateToQuery - timedelta(days=1)
+    toDate = dateToQuery + timedelta(days=1)
+    async for message in media_channel.history(limit=None, before=toDate, after=fromDate):
+        isFromCorrectBot = message.author.bot and message.author.id == MEDIA_STREAMBOT_ID and "Arena 51 Gaming is live" in message.content
+        isAroundScrimTime = ((dateToQuery - timedelta(hours=1)).hour < message.created_at.hour)
+        if isFromCorrectBot and isAroundScrimTime:
+            if f"{message.created_at.year}{message.created_at.month}{message.created_at.day}" == f"{dateToQuery.year}{dateToQuery.month}{dateToQuery.day}":
+                # print(f"Found matching date! Media: {message.created_at.year}-{message.created_at.month}-{message.created_at.day}, Caster Signup Date: {dateToQuery.year}-{dateToQuery.month}-{dateToQuery.day}")
+                return True
+    return False
 
 
 def dutil_manualAdd_casterData(casterName, role, daysCasted):
@@ -380,6 +399,32 @@ async def dutil_bulkAssignRoles(guild, discordUsernameList, role):
     
     roleAssignResults['MembersNotFoundInGuild'] = discordUsernameList
     return roleAssignResults
+
+
+async def dutil_post_unprocessed_clips(ctx, twitchProcessor):
+    clipsDirct = await twitchProcessor.get_clips_to_process()
+    # channel = ctx.get_channel( CLIPSTOYT_VOTE_CHANNEL_ID )
+    if not clipsDirct:
+        await ctx.channel.send(f"No recent clips found!")
+        return
+    for key in clipsDirct.keys():
+        recentMessage = await ctx.channel.send(f"{twitchProcessor.clipToSting(clipsDirct[key])}\n")
+        for emoji in CLIPSTOYT_VOTE_EMOJIS:
+            await recentMessage.add_reaction(emoji)
+
+# Add func here to check for processing clips that have been posted
+"""
+foreach message in channel that has been sent by you, the bot
+    IF ✅>❌ and message.datePosted > a week from Datetime.now
+        save url thats in message
+        download clip using url
+        move clip download into the input for the processing folder OR send clip path directly to video processing py
+        add clip to list of 'about to be processed' clips
+        delete message
+run py process clips, make sure output is clear
+for each clip in output:
+    post to YT
+"""
 
 
 class DiscordUtilError(Exception):

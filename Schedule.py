@@ -118,7 +118,7 @@ def get_previous_schedule():
     if SUNDAY_TIMECODE == 0:
         try:
             SUNDAY_TIMECODE = int(formattedLS[-1].split('<T:')[1].split(':T>')[0])
-        except ValueError:
+        except ValueError or IndexError:
             print(f'\t--- \n\tError reading timecode for sunday.')
             try:
                 SUNDAY_TIMECODE = 0 #int(input('\tPlease input timecode maunally: ').upper().replace('<T:', '').replace(':T>', ''))

@@ -88,7 +88,7 @@ class CSignupEntry:
     def __extract_broadcasters(self, rawStr):
 
         producers, colours, playbyplays = (), (), ()
-        producer_search = ' '.join(re.findall('Production\/Observer\(🎥\): (<@\d{18}> ?)*', rawStr))
+        producer_search = ' '.join(re.findall('Producer\(💻\):? (<@\d{18}> ?)*', rawStr))
         caster_pbp_search = ' '.join(re.findall('Play-By-Play\(🎙\): (<@\d{18}> ?)*', rawStr))
         caster_col_search = ' '.join(re.findall('Colour\(🔬\): (<@\d{18}> ?)*', rawStr))
 
