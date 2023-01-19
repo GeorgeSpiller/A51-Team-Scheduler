@@ -1,6 +1,7 @@
 import json
 import re
 from os import listdir, path
+import time
 from discord import Embed, Color, errors, Forbidden, HTTPException
 from datetime import datetime, timedelta
 from Schedule import main
@@ -70,9 +71,6 @@ async def dutil_build_embed(user, scoreString, client, month=None, arg=None, cas
         arg.replace('prod', 'Producer')
         arg.replace('col', 'Colour Caster')
         arg.replace('pbp', 'Play-By-Play Caster')
-
-
-        print(f"castermstats: {casterMonthStats}")
 
         embed=Embed(
             title=f"{user.name}#{user.discriminator} is {full_month_name}'s {arg} of the Month!", 
@@ -187,22 +185,28 @@ def dutil_get_mostFrequent_broadcasters(month, casterType):
         if filename == '.gitignore':
             continue
         json_MonthFile = path.join(BROADCASTER_SIGNUPSTORE_DIR, filename)
-        fileNameMonth = int(filename.split()[0].replace('[', '').replace(']', '').replace(str(datetime.datetime.now().year), '').replace('-', ''))
-        if fileNameMonth == int(month):
+        fileNameMonth = filename.split("]")[0].split("[")[1]
+        if "-" in fileNameMonth:
+            fileNameMonth = fileNameMonth.split("-")[1]
+
+        print(f"fileNameMonth ({int(fileNameMonth)}) == month ({int(month)}): {int(fileNameMonth) == int(month)}")
+        if int(fileNameMonth) == int(month):
+            print(f"On file Standard: {filename}")
             with open(json_MonthFile, 'r') as f:
                 count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
-
         else:
             # count entries in all manual entry files
             if 'Manual' in filename:
+                print(f"On file: {filename}")
                 with open(json_MonthFile, 'r') as f:
                     count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
-    
     # get caster with the most total casts
     currentMax = list(count_month.keys())[0]
+    print(f"Months count: {count_month}")
     for userID in count_month.keys():
         if count_month[userID][f'{casterType}s'] > count_month[currentMax][f'{casterType}s']:
             currentMax = userID
+    print({currentMax : count_month[currentMax]})
     return {currentMax : count_month[currentMax]}
 
 
@@ -211,19 +215,20 @@ def dutil_get_all_casterIDs(jsonDict):
     # return the user obj if found, else return False
     raw_casterIDs = []
     casterIDs = []
-    for k in jsonDict.keys(): # for each day
+    for k in jsonDict.keys(): # for each day listed in the json
         raw_casterIDs.append(jsonDict[k]['prods'])
         raw_casterIDs.append(jsonDict[k]['cols'])
         raw_casterIDs.append(jsonDict[k]['pbps'])
-
     for entry in raw_casterIDs:
         if entry != [] and entry != None:
             if len(entry) > 1:
                 for e in entry:
-                    casterIDs.append(e[0])
+                    casterIDs.append(e) # e[0]
             else:
-                casterIDs.append(entry[0])
-    
+                # somtimes theres a single ID in many lists
+                while (isinstance(entry, list)):
+                    entry = entry[0]
+                casterIDs.append(entry) # e[0]
     return [*set(casterIDs)]
 
 
@@ -233,9 +238,11 @@ def dutil_count_broadcasts(jsonDict, userID=None):
     count_pbp = 0 
     count_total = 0
     counts = {}
+    ## somethings up here? # prods not counted 
     if userID != None:
         for k in jsonDict.keys(): # for each day
-            oneCastPerDayFalg = False
+            # print(f"({userID}) jsonKey: {k} (prods, cols, pbps): ({jsonDict[k]['prods']}, {jsonDict[k]['cols']}, {jsonDict[k]['pbps']})")
+            oneCastPerDayFalg = False   #   counts each day as a single 'total' cast 
             if str(userID) in jsonDict[k]['prods']:
                 count_prod += len(jsonDict[k]['prods'])
                 oneCastPerDayFalg = True
@@ -253,6 +260,7 @@ def dutil_count_broadcasts(jsonDict, userID=None):
             casterIDs = dutil_get_all_casterIDs(jsonDict)
             for id in casterIDs:
                 counts[str(id)] = dutil_count_broadcasts(jsonDict, id)[str(id)]
+                print(f"Caster: {id} has counts: {counts[str(id)]}")
     return counts
 
 
@@ -318,7 +326,7 @@ async def dutil_hasStreamedSameDay(client, dateToQuery):
     return False
 
 
-def dutil_manualAdd_casterData(casterName, role, daysCasted):
+async def dutil_manualAdd_casterData(ctx, casterName, role, daysCasted):
     
     # get caster name
     with open(BROADCASTER_ID_TO_NAME_FILE, 'r') as f:
@@ -327,13 +335,16 @@ def dutil_manualAdd_casterData(casterName, role, daysCasted):
     casterID = None
 
     for key in savedCasterIDs:
-        if savedCasterIDs[key] == casterName:
+        if savedCasterIDs[key].lower() == casterName.lower():
             casterID = key
             break
     
     if casterID == None:
-        # caster name parameter not found, throw
-        print(f'caster: {casterName} not found.')
+        for member in ctx.guild.members:
+            if casterName == member.name:
+                casterID = member.id
+                await ctx.channel.send(f"Found caster in discord server: {casterName}, but they have not been live with us before (after 2022).")
+    if casterID == None:
         raise ValueError()
 
     # construct raw message to be parsed and saved
@@ -367,6 +378,7 @@ def dutil_loadFile(attachmentURL):
         discordNames = discordNames.strip().replace('\r', '').split('\n')
     else:
         raise UndefinedSeporator()
+    # discordNames = [x.split("#")[0] for x in discordNames]
 
     return discordNames
 
@@ -377,6 +389,9 @@ def dutil_roleExists(guild, roleName):
     if role != None:
         return role
     else:
+        role = dutil_get(guild.roles, id=roleName)
+        if role != None:
+            return role
         raise RoleNotFound(roleName, guild.name)
 
 
@@ -402,28 +417,47 @@ async def dutil_bulkAssignRoles(guild, discordUsernameList, role):
 
 
 async def dutil_post_unprocessed_clips(ctx, twitchProcessor):
-    clipsDirct = await twitchProcessor.get_clips_to_process()
-    # channel = ctx.get_channel( CLIPSTOYT_VOTE_CHANNEL_ID )
-    if not clipsDirct:
+    clipsList = await twitchProcessor.get_clips_to_process()
+    if not clipsList or clipsList == []:
         await ctx.channel.send(f"No recent clips found!")
         return
-    for key in clipsDirct.keys():
-        recentMessage = await ctx.channel.send(f"{twitchProcessor.clipToSting(clipsDirct[key])}\n")
+    for c in clipsList:
+        recentMessage = await ctx.channel.send(f"{twitchProcessor.clipToSting(c)}\n")
         for emoji in CLIPSTOYT_VOTE_EMOJIS:
             await recentMessage.add_reaction(emoji)
+    time.sleep(len(clipsList)) 
 
-# Add func here to check for processing clips that have been posted
 
 async def dutil_process_pending_clips(client):
     # foreach message in channel that has been sent by you, the bot
     pending_clips_channel = client.get_channel(CLIPSTOYT_VOTE_CHANNEL_ID)
+    clipsProcessingStack = []
     async for message in pending_clips_channel.history(limit=None, after=datetime.datetime(2022, 12, 1), oldest_first = False):
         if message.author.bot and contains_url(message.content):
             # IF ✅>❌ and message.datePosted > a week from Datetime.now
+            yesCount = 0
+            noCount = 0
             for r in message.reactions:
-                print(r.emoji)
-            print(list(message.reactions)) # (list(filter( lambda emoji:  emoji == CLIPSTOYT_VOTE_EMOJIS[1], message.reactions)))
-            #print(f"message {message.content} has {yes_react} yea and {no_react} no")
+                if (r.emoji == CLIPSTOYT_VOTE_EMOJIS[0]):
+                    yesCount = r.count
+                if (r.emoji == CLIPSTOYT_VOTE_EMOJIS[1]):
+                    noCount = r.count
+            print(f"yes: {yesCount}, no: {noCount}, list: {list(message.reactions)}") 
+            if (yesCount > noCount):
+                # get url in message
+                url_extract_pattern = "https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)"
+                url = re.findall(url_extract_pattern, message.content)[0]
+                clipsProcessingStack.append( {"message" : message, "url" : url} )
+            if noCount > yesCount:
+                await message.delete()
+
+        for i in range(len(clipsProcessingStack)):
+
+            await clipsProcessingStack[i]["message"].edit(content=f"Processing clip: <{clipsProcessingStack[i]['url']}>...")
+            driveUrl = await dutil_TwitchClip_To_DriveProcessedClip(clipsProcessingStack[i]['url'])
+            await clipsProcessingStack[i]["message"].edit(content=f"Processing Finished! Uploaded to: <{driveUrl}>")
+            await clipsProcessingStack[i]["message"].clear_reactions()
+            del clipsProcessingStack[i]
         # save url thats in message
         # download clip using url
         # move clip download into the input for the processing folder OR send clip path directly to video processing py
@@ -433,6 +467,11 @@ async def dutil_process_pending_clips(client):
     # for each clip in output:
     # post to YT
     pass
+
+
+async def dutil_TwitchClip_To_DriveProcessedClip(twitchUrl):
+    time.sleep(5) # simulate  
+    return "Exmaple/URL//clip/processing/and/drive/uploading/not/implemeted/yet"
 
 
 def contains_url(inputStr):

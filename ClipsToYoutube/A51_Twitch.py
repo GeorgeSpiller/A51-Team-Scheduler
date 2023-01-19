@@ -44,7 +44,7 @@ class twitchUtils:
         user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
         # dict of [clip ID] : (title, url)
         clipDict = {}
-        after_date = datetime.datetime.now() - relativedelta(months=1)
+        after_date = datetime.datetime.now() - relativedelta(months=2)
         async for clip in self.twitch.get_clips(user.id, ended_at=datetime.datetime.now(), started_at=after_date):   # have to include before, as by default it returns in order of views
             if (clip.title == title_or_clipID or clip.id == title_or_clipID):
                 break
@@ -52,38 +52,13 @@ class twitchUtils:
         return clipDict# {k: v for k, v in clipDict.items() if v is not None}
 
 
-    async def get_streams_until(self, title_or_streamID):
-        user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
-        # dict of [clip ID] : (title, url)
-        streamDict = {}
-        async for stream in self.twitch.get_videos(user_id=user.id, video_type=VideoType.ARCHIVE):
-            # print( f"stream({stream.title} : {stream.duration}, id: {stream.id}, url: {stream.url})" )
-            streamDict[stream.id] = (stream.title, stream.url)
-            if (stream.title == title_or_streamID or stream.id == title_or_streamID):
-                break
-        return streamDict
-
-
-    async def get_stream_range(self):
-        # gets the mostrecent 'first' clip ID, and the last clip ID that was processed 'last'
-        # returns tuple (first, last) 
-        user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
-        firstStreamID = await first(self.twitch.get_videos(user_id=user.id, video_type=VideoType.ARCHIVE))
-        firstStreamID = firstStreamID.id
-        with open( DEFAULT_LASTSTREAMID_FILE_LOCATION, 'r') as f:
-            lastStreamID = f.readline()
-        with open( DEFAULT_LASTSTREAMID_FILE_LOCATION, 'w') as f:
-            # update the txt file to now have the most recent streamID as its 'most recently processed clip'
-            print("This is a remonder to uncommend line ~76 in A51_Twitch.py (to re-write the most recently processed stream)")
-            #f.write(firstStreamID)
-        return (firstStreamID, lastStreamID)
-
-
     async def get_clip_range(self):
         # gets the mostrecent 'first' clip ID, and the last clip ID that was processed 'last'
         # returns tuple (first, last) 
         user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
-        fistClipID = await first(self.twitch.get_clips(user.id))
+        after_date = datetime.datetime.now() - relativedelta(months=2)
+        clips = await self.twitch.get_clips(user.id, ended_at=datetime.datetime.now(), started_at=after_date)  # have to include before, as by default it returns in order of views
+        clips.sort()
         fistClipID = fistClipID.id
         with open( DEFAULT_LASTCLIPID_FILE_LOCATION, 'r') as f:
             lastClipID = f.readline()
@@ -93,32 +68,71 @@ class twitchUtils:
             #f.write(fistClipID)
         return (fistClipID, lastClipID)
 
+    
+    async def get_clip_batch(self, monthLookBack):
+        user = await first(self.twitch.get_users(logins='Arena_51_Gaming'))
+        clipBatch = []
+        recent_date = datetime.datetime.now() + relativedelta(months=-monthLookBack)
+        until_date = datetime.datetime.now() + relativedelta(months=-(monthLookBack-1))
+        batchClipCount = 0
+        while (batchClipCount == 0):
+            batchClipCount = 20
+            async for clip in self.twitch.get_clips(user.id, first=batchClipCount, ended_at=until_date, started_at=recent_date):
+                clipBatch.append(clip)
+                batchClipCount -= 1
+        return clipBatch
+
+
+    async def get_clip_batch_until_clipFound(self, title_or_clipID):
+        monthLookback = 1
+        clipFoundFlag = False
+        clipList = []
+        while not clipFoundFlag:
+            currClipList = await self.get_clip_batch(monthLookback)
+            for clip in currClipList:
+                if (clip.title == title_or_clipID or clip.id == title_or_clipID):
+                    clipFoundFlag = True
+            monthLookback -= 1
+            clipList.append(currClipList)
+        return clipList 
+
+    def format_ClipsList(self, clipsList, title_or_clipID):
+        clipsList = [item for sublist in clipsList for item in sublist]
+        clipsList.sort(reverse=True, key=self.getClipDate)
+
+        validClips = 0
+        for c in clipsList:
+            if (c.title == title_or_clipID or c.id == title_or_clipID):
+                return clipsList[:validClips]
+            validClips +=1
+        print(clipsList[:validClips])
+        return clipsList[:validClips]
+
 
     async def get_clips_to_process(self):
-        # twitch = asyncio.run(twitch_oAuthlogin())
-        firstClp, lastClp = await self.get_clip_range()
-        clipDict = await self.get_clips_until(lastClp)
-        return clipDict
+        with open( DEFAULT_LASTCLIPID_FILE_LOCATION, 'r') as f:
+            lastClipID = f.readline()
+        clipList = await self.get_clip_batch_until_clipFound(lastClipID)
+        clipList = self.format_ClipsList(clipList, lastClipID)
+        
+        print(self.clipListToString(clipList))
+        return clipList
 
 
-    async def get_streams_to_process(self):
-        # twitch = asyncio.run(twitch_oAuthlogin())
-        firstStrm, lastStrm = asyncio.run(self.get_stream_range())
-        streamDict = await self.get_streams_until(lastStrm)
-        print(streamDict)
-        return streamDict
+    def getClipDate(self, clip):
+        return clip.created_at
 
 
     def clipToSting(self, clip):
-        return f"'{clip.title}' Clipped By: {clip.creator_name}:\t{clip.url}"
+        return f"'{clip.title}' Clipped By: {clip.creator_name}.\t{clip.url}"
 
 
-    def clipDictToString(self, clipDictionary):
+    def clipListToString(self, clipList):
         retSrt = ""
-        for key in clipDictionary.keys():
-            retSrt += f"{self.clipToSting(clipDictionary[key])}\n"
-        print(retSrt)
+        for c in clipList:
+            retSrt += f"{self.clipToSting(c)}, "
         return retSrt
+
 
 
 # Redirect URL: http://localhost:17563
@@ -126,8 +140,6 @@ class twitchUtils:
 if __name__ == "__main__":
     # clip ID: ExcitedPoorKiwiBloodTrail-91Q4pix6023dELgn
     # stream ID: 1641595218
-
     twitchProcessor = twitchUtils()
     clipDict = asyncio.run(twitchProcessor.get_clips_to_process())
-    print(twitchProcessor.clipDictToString(clipDict))
 
