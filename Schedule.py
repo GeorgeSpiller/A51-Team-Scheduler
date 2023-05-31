@@ -112,7 +112,6 @@ def get_previous_schedule():
         ps = f.readlines()
     
     formattedLS = ''.join(ps).replace(' ', '').upper().split('-----------------------------------------')
-
     # Get previouse schedules timecode for Sunday. Used to generate timecodes for upcomming schedule.
     # If there is a bad read (eg. text in schedule contains <t:##:t>) prompt manual entry
     if SUNDAY_TIMECODE == 0:
@@ -120,11 +119,8 @@ def get_previous_schedule():
             SUNDAY_TIMECODE = int(formattedLS[-1].split('<T:')[1].split(':T>')[0])
         except ValueError or IndexError:
             print(f'\t--- \n\tError reading timecode for sunday.')
-            try:
-                SUNDAY_TIMECODE = 0 #int(input('\tPlease input timecode maunally: ').upper().replace('<T:', '').replace(':T>', ''))
-            except ValueError:
-                print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
-                SUNDAY_TIMECODE = 0
+            print('\tBad timecode format. Examples: <t:1664733600:T>  or 1664733600 . Time code will be undefined')
+            SUNDAY_TIMECODE = 0
             print('\t---')
     return formattedLS
 
@@ -291,6 +287,19 @@ def get_schedule(teams):
     return final_order
    
 
+def Get_Team_Emoji(teamName):
+    """
+    For a given team name in the format TEAMNAMEALLCAPSNOSPACES, return the name of their emoji (hardcoded) in the 
+    format :TeamEmojiName:    
+    """
+    TeamEmojiDict = {"No Stream": ":x:", "BAITERS": ":Baiters:", "GIGACHADS": ":GigaChads:", "WKND": ":wknd:", "BUDGETSHOCK": ":BudgetShock:", "COUCHPOTATOES": ":CouchPotatoes~1:", "TERAVICIOUS": ":TeraVicious:", "YOINKERS": ":Yoinkers:", "UTRECHTUNDERPAY": ":UtrechtUnderpay:", "FISH&CHIPS": ":FishandChips:"}
+
+    if teamName in TeamEmojiDict:
+        return TeamEmojiDict[teamName]
+    else:
+        return f":{teamName}:"
+
+
 def format_schedule(teamlist):
     ''' Formats the final order of the teams into a discord message, and returns the final string
     Paramters:
@@ -298,7 +307,7 @@ def format_schedule(teamlist):
     Return:
         Formatted string of schedule with sub teams denoted
     '''
-
+    print(teamlist)
     # get next weeks (from current date) monday and sunday date 
     d = date.today()
     next_monday = next_weekday(d, 0) # 0 = Monday, 1=Tuesday, 2=Wednesday...
@@ -308,32 +317,31 @@ def format_schedule(teamlist):
     Week {next_monday.day}/{next_monday.month} - {next_sunday.day}/{next_sunday.month}
 
     *Monday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 1)}:t>
-    @{teamlist[0][0]} (sub: {teamlist[0][1]})
+    {Get_Team_Emoji(teamlist[0][0])} @{teamlist[0][0]} {Get_Team_Emoji(teamlist[0][0])} (sub: {teamlist[0][1]})
     -----------------------------------------
     *Tuesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 2)}:t>
-    @{teamlist[1][0]} (sub: {teamlist[1][1]})
+    {Get_Team_Emoji(teamlist[1][0])} @{teamlist[1][0]} {Get_Team_Emoji(teamlist[1][0])} (sub: {teamlist[1][1]})
     -----------------------------------------
     *Wednesday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 3)}:t>
-    @{teamlist[2][0]} (sub: {teamlist[2][1]})
+    {Get_Team_Emoji(teamlist[2][0])} @{teamlist[2][0]} {Get_Team_Emoji(teamlist[2][0])} (sub: {teamlist[2][1]})
     -----------------------------------------
     *Thursday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 4)}:t>
-    @{teamlist[3][0]} (sub: {teamlist[3][1]})
+    {Get_Team_Emoji(teamlist[3][0])} @{teamlist[3][0]} {Get_Team_Emoji(teamlist[3][0])} (sub: {teamlist[3][1]})
     -----------------------------------------
     *Friday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 5)}:t>
-    @{teamlist[4][0]} (sub: {teamlist[4][1]})
+    {Get_Team_Emoji(teamlist[4][0])} @{teamlist[4][0]} {Get_Team_Emoji(teamlist[4][0])} (sub: {teamlist[4][1]})
     -----------------------------------------
     *Saturday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 6)}:t>
-    @{teamlist[5][0]} (sub: {teamlist[5][1]})
+    {Get_Team_Emoji(teamlist[5][0])} @{teamlist[5][0]} {Get_Team_Emoji(teamlist[5][0])} (sub: {teamlist[5][1]})
     -----------------------------------------
     *Sunday scrim <t:{SUNDAY_TIMECODE + (HAMMERTIME_DIFFERENCE * 7)}:t>
-    @{teamlist[6][0]} (sub: {teamlist[6][1]})
+    {Get_Team_Emoji(teamlist[6][0])} @{teamlist[6][0]} {Get_Team_Emoji(teamlist[6][0])} (sub: {teamlist[6][1]})
 
     *Subject to broadcaster availability"""  
     return discord_message_format
 
 
-
-def main():
+def GenerateSchedule():
     '''  produces a stream schedule '''
 
     # get a formatted list of teams [name, bool scrim days...., score]
@@ -360,5 +368,5 @@ def main():
 
 
 if __name__ == '__main__':
-    print(main())
+    print(GenerateSchedule())
 

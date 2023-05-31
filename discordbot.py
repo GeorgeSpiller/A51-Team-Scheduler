@@ -1,10 +1,12 @@
 import json
 from os import getcwd, path
+import time
 import traceback
 from discord.ext import commands
 from discord import Intents, utils
 from datetime import datetime
-from Schedule import get_teams, get_days_scrimming_teams, main
+from ClipsToYoutube.A51_Twitch import twitchUtils
+from Schedule import get_teams, get_days_scrimming_teams, GenerateSchedule
 from Constants import *
 from DiscordUtils import *
 
@@ -28,9 +30,9 @@ utils.setup_logging()
 load_data()
 global glob_data
 global glob_tocken
-LAST_UPDATED_DATE                   = datetime.strptime(glob_data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
+LAST_UPDATED_DATE                   = datetime.datetime.strptime(glob_data['Date Compiled'], "%Y-%m-%d %H:%M:%S.%f")
 LAST_UPDATED_STRING                 = f'{LAST_UPDATED_DATE.day}/{LAST_UPDATED_DATE.month} at {LAST_UPDATED_DATE.hour}:{LAST_UPDATED_DATE.minute}'
-
+twitchProcessor = twitchUtils()
 
 intents = Intents.default()
 intents.message_content = True
@@ -171,7 +173,7 @@ async def generate(ctx):
     print_command(f'a/generate', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         await ctx.channel.send(f"Aye Aye Captain!")
-        newSchedule = main()
+        newSchedule = GenerateSchedule()
         await ctx.author.send(f"Hello there! I believe you requested the schedule for next week:")
         await ctx.author.send(f"```{newSchedule}```")
 
@@ -187,21 +189,20 @@ async def generate(ctx):
 async def casterofthemonth(ctx, arg):
     print_command(f'a/casterofthemonth {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        # await ctx.author.send(f"```currently does not work, needs debugging.```")
         if arg != "prod" and arg != "pbp" and arg != "col":
             await ctx.channel.send(f"Unrecognised argument ``{arg}``! Please use iether: ``prod``, ``pbp`` or ``col``.")
         else:
             # get month specific info
-            currentMonth = datetime.now().month
+            currentMonth = datetime.datetime.now().month
             lastMonth = currentMonth - 1 if (currentMonth - 1) != 0 else 12
             casterOTM = dutil_get_mostFrequent_broadcasters(lastMonth, arg)
             casterOTM_ID = list(casterOTM.keys())[0]
-
             # get total info
             casterOTM_total = dutl_get_total_broadcasts_string(casterOTM_ID)
 
             embed = await dutil_build_embed(await client.fetch_user(int(casterOTM_ID)), casterOTM_total, client, lastMonth, arg, casterOTM[casterOTM_ID])
             await ctx.send(embed=embed)
-
 
 
 @client.command(
@@ -233,7 +234,7 @@ async def casterinfo(ctx, arg):
             await ctx.send(embed=embed)
         else:
             # user not found
-            await ctx.channel.send(f"Ope. I cannot find the user ``{arg}`` in <#{SCHEDULE_CHANNEL_ID}>. ")
+            await ctx.channel.send(f"Ope. I cannot find the user ``{arg}`` in <#{CASTERSIGNUP_CHANNEL_ID}>. ")
 
 
 @client.command(
@@ -250,7 +251,7 @@ async def manualAddCasterinfo(ctx, *arg):
             cName = arg[0]
             role = arg[1]
             days = int(arg[2])
-            dutil_manualAdd_casterData(cName, role, days)
+            await dutil_manualAdd_casterData(ctx ,cName, role, days)
             await ctx.channel.send(f"Data added.")
         except Exception as e:
             print(e)
@@ -265,13 +266,15 @@ async def manualAddCasterinfo(ctx, *arg):
 	brief="[a/bar] assigns users in attached file a role. eg: a/bar Admin",
     aliases=['bulkar', 'bar', 'bulkasign'] 
 )
-async def bulkAssignRoles(ctx, arg):
+async def bulkAssignRoles(ctx, *arg):
     print_command(f'a/bulkAssignRoles {arg}', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
     if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
         try:
+            roleFullName = ' '.join(arg)
+            await ctx.channel.send(f"Processing file...")
             attachment_url = ctx.message.attachments[0].url
             discordNames = dutil_loadFile(attachment_url)
-            discordRole = dutil_roleExists(ctx.message.guild, arg)
+            discordRole = dutil_roleExists(ctx.message.guild, roleFullName)
             results = await dutil_bulkAssignRoles(ctx.message.guild, discordNames, discordRole)
             await ctx.channel.send(f"""Role assignments processed.
             Members who have been sucessfully given the {arg} role: \n```{results['SucessfulAssignment']}```
@@ -285,15 +288,43 @@ async def bulkAssignRoles(ctx, arg):
         except IndexError  as e:
             await ctx.channel.send(f"Please upload a file as an attachment to the `a/bar` command.")
         except Exception  as e:
+            await ctx.channel.send(f"There were some errors processing: {traceback.format_exc()}")
             print(f'Errors: {traceback.format_exc()}')
 
+@commands.has_any_role(*PROTECTED_COMMANDS_ALLOWED_ROLES)
+@client.command(
+    # ADDS THIS VALUE TO THE a/HELP PRINT MESSAGE.
+	help=f"Posts links to newly uploaded & unposted twitch clips to be voted on.",
+	# ADDS THIS VALUE TO THE a/HELP MESSAGE.
+	brief=f"[a/ucl] Updates the clips voting channel with new most recent twitch clips ",
+    aliases=['ucl', 'updatecl', 'uclips', 'uclip', 'clips', 'clip', 'updateclips', 'updateclip'] 
+)
+async def updateClipList(ctx):
+    print_command(f'a/updateClipList', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
+    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        try:
+            await dutil_post_unprocessed_clips(ctx, twitchProcessor) # can take a bit for posts to post and reacts to...react. sleep n secs where n = number of clips  
+        except NoRecentClips as nrcExp:
+            await ctx.channel.send(str(nrcExp))
+
+@commands.has_any_role(*PROTECTED_COMMANDS_ALLOWED_ROLES)
+@client.command(
+    # ADDS THIS VALUE TO THE a/HELP PRINT MESSAGE.
+	help=f"Goes through all the clips posted in the clips voting channel, and processes each one, replaceing its link with a google drive link to the processed clip.",
+	# ADDS THIS VALUE TO THE a/HELP MESSAGE.
+	brief=f"[a/pcl] Processes all voted clips and uploads them to GoogleDrive.",
+    aliases=['pcl', 'processcl', 'pclips', 'pclip', 'process', 'processclips', 'processclip'] 
+)
+async def processClipList(ctx):
+    print_command(f'a/processClipList', f'{ctx.author.name}#{ctx.author.discriminator}', ctx.guild.name, ctx.channel.name)
+    if ctx.channel.id in BOTCOMMANDS_ALLOWED_CHANNELS:
+        await dutil_process_pending_clips(client, ctx)
 
 
-client.run(glob_tocken)
 
-
-
-
+if __name__ == '__main__':
+    print("Starting Discord Bot...")
+    client.run(glob_tocken)
 
 
 

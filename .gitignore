@@ -2,3 +2,5 @@
 *.json
 *.txt
 *.lock
+*.yaml
+client_secrets.json

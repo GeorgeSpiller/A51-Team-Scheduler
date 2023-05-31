@@ -14,8 +14,13 @@ requests = "*"
 twitchapi = "*"
 typing-extensions = "*"
 python-dateutil = "*"
+twitch-dl = "*"
+moviepy = "*"
+scikit-image = "*"
+pydrive = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
+python_version = "3.10.9"
+python_full_version = "3.10.9"

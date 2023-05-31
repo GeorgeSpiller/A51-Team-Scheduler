@@ -20,7 +20,10 @@ def cellFormat_to_color(cellformatstring):
     # format from list of strings to floats (removes the color tags red=, green=, blue=)
     if backgroundcolor[0] != 'None':
         for i, v in enumerate(backgroundcolor):
-            backgroundcolor[i] = round(float(v.split('=')[1]), 2)
+            try:
+                backgroundcolor[i] = round(float(v.split('=')[1]), 2)
+            except:
+                pass
         return backgroundcolor
     return None
 
@@ -30,7 +33,7 @@ def cellFormat_to_color(cellformatstring):
 SERVICE_ACCOUNT                     = service_account(filename=f'{getcwd()}\\auth\\plasma-respect-323910-617fd6c81027.json')
 SPREADSHEET_URL                     = 'https://docs.google.com/spreadsheets/d/1n-W6oyEv4HehYN3gYcUVk7dOJQUP_Y70L7AN_Sp8Lgo/edit#gid=2043552790'
 SPREADSHEET                         = SERVICE_ACCOUNT.open_by_url(SPREADSHEET_URL)
-WORKSHEET                           = SPREADSHEET.get_worksheet(1)    # We only want to use the 2nd worksheet, 'Team Schedule'
+WORKSHEET                           = SPREADSHEET.get_worksheet(0)    # Removed all other worksheets, we want the first one 'Team Schedule'
 WORKSHEET_AVAILABLE_CELLFORMAT      = get_user_entered_format(WORKSHEET,'C10')   # This cell is constant, formatted with the available color
 WORKSHEET_NOTAVAILABLE_CELLFORMAT   = get_user_entered_format(WORKSHEET,'C11')# This cell is constant, formatted with the not available color
 SUNDAY_TIMECODE                     = 0
@@ -52,8 +55,8 @@ ALLOWED_SERVERS                     = [714774324174782534, 743968283006337116, 9
 SCHEDULE_CHANNEL_ID                 = 816724490674634772 # Testing Server: 1001559765215883344 A51: 816724490674634772
 CASTERSIGNUP_CHANNEL_ID             = 810799071232393216 # A51: 810799071232393216
 MEDIA_CHANNEL_ID                    = 870700654354661436 # A51: 870700654354661436
-BOTCOMMANDS_ALLOWED_CHANNELS        = [1065367657974611968, 1021067395915317288, 1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033, 869177328855556156]
-CLIPSTOYT_VOTE_CHANNEL_ID           = 1065367657974611968 # staffServer: 1061665495075540992
+BOTCOMMANDS_ALLOWED_CHANNELS        = [1069533661029998613, 1065367657974611968, 1021067395915317288, 1001915039386701965, 714774324174782537, 804415006631264306, 825990730752983040, 743968283434156033, 869177328855556156]
+CLIPSTOYT_VOTE_CHANNEL_ID           = 1069533661029998613 # staffServer: 1069533661029998613
 BROADCASTER_ROLES                   = ['caster_ow', 'observer_ow', 'producer']
 PROTECTED_COMMANDS_ALLOWED_ROLES    = 'Manager', 'Team Manager'
 PREVIOUS_SCHEDULE_STRING            = ''

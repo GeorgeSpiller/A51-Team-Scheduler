@@ -4,7 +4,7 @@ from os import listdir, path
 import time
 from discord import Embed, Color, errors, Forbidden, HTTPException
 from datetime import datetime, timedelta
-from Schedule import main
+from Schedule import GenerateSchedule
 from Constants import *
 from casterSignupEntry import CSignupEntry
 from requests import get as request_get
@@ -12,6 +12,7 @@ from discord.utils import get as dutil_get
 from bColors import bc
 from __main__ import __file__
 from ClipsToYoutube.A51_Twitch import *
+import traceback
 
 
 # logging progress
@@ -189,24 +190,23 @@ def dutil_get_mostFrequent_broadcasters(month, casterType):
         if "-" in fileNameMonth:
             fileNameMonth = fileNameMonth.split("-")[1]
 
-        print(f"fileNameMonth ({int(fileNameMonth)}) == month ({int(month)}): {int(fileNameMonth) == int(month)}")
         if int(fileNameMonth) == int(month):
-            print(f"On file Standard: {filename}")
+            # print(f"On file Standard: {filename}")
             with open(json_MonthFile, 'r') as f:
                 count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
         else:
             # count entries in all manual entry files
             if 'Manual' in filename:
-                print(f"On file: {filename}")
+                # print(f"On file: {filename}")
                 with open(json_MonthFile, 'r') as f:
                     count_month = dutil_merge_count_broadcasts_dicts(count_month, dutil_count_broadcasts(json.load(f)))
     # get caster with the most total casts
     currentMax = list(count_month.keys())[0]
-    print(f"Months count: {count_month}")
+    # print(f"Months count: {count_month}")
     for userID in count_month.keys():
         if count_month[userID][f'{casterType}s'] > count_month[currentMax][f'{casterType}s']:
             currentMax = userID
-    print({currentMax : count_month[currentMax]})
+    # print({currentMax : count_month[currentMax]})
     return {currentMax : count_month[currentMax]}
 
 
@@ -260,7 +260,7 @@ def dutil_count_broadcasts(jsonDict, userID=None):
             casterIDs = dutil_get_all_casterIDs(jsonDict)
             for id in casterIDs:
                 counts[str(id)] = dutil_count_broadcasts(jsonDict, id)[str(id)]
-                print(f"Caster: {id} has counts: {counts[str(id)]}")
+                # print(f"Caster: {id} has counts: {counts[str(id)]}")
     return counts
 
 
@@ -428,7 +428,7 @@ async def dutil_post_unprocessed_clips(ctx, twitchProcessor):
     time.sleep(len(clipsList)) 
 
 
-async def dutil_process_pending_clips(client):
+async def dutil_process_pending_clips(client, ctx):
     # foreach message in channel that has been sent by you, the bot
     pending_clips_channel = client.get_channel(CLIPSTOYT_VOTE_CHANNEL_ID)
     clipsProcessingStack = []
@@ -442,7 +442,7 @@ async def dutil_process_pending_clips(client):
                     yesCount = r.count
                 if (r.emoji == CLIPSTOYT_VOTE_EMOJIS[1]):
                     noCount = r.count
-            print(f"yes: {yesCount}, no: {noCount}, list: {list(message.reactions)}") 
+            # print(f"yes: {yesCount}, no: {noCount}, list: {list(message.reactions)}") 
             if (yesCount > noCount):
                 # get url in message
                 url_extract_pattern = "https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)"
@@ -452,26 +452,44 @@ async def dutil_process_pending_clips(client):
                 await message.delete()
 
         for i in range(len(clipsProcessingStack)):
+            try:
+                # edit message to processing, clear reactions
+                await clipsProcessingStack[i]["message"].edit(content=f"Starting to process clip: <{clipsProcessingStack[i]['url']}>...")
+                await clipsProcessingStack[i]["message"].clear_reactions()
+                # start processing clip, convert TitchUrl to processedClip's google Drive URL
+                clipName = clipsProcessingStack[i]['message'].content.replace(str(clipsProcessingStack[i]['url']), "").strip()
+                driveUrl = await dutil_TwitchClip_To_DriveProcessedClip(clipsProcessingStack[i]['url'], clipName, clipsProcessingStack[i], ctx, client)
+                # output processed clip
+                await clipsProcessingStack[i]["message"].edit(content=f"Processing Finished! Uploaded to: <{driveUrl}>")
+                del clipsProcessingStack[i]
+            except Exception:
+                await clipsProcessingStack[i]["message"].clear_reactions()
+                await clipsProcessingStack[i]["message"].edit(content=f"Could not process clip! Stack Trace: \n```{traceback.format_exc()[:125]}....\n(see console for full stack trace)```")
+                raise
 
-            await clipsProcessingStack[i]["message"].edit(content=f"Processing clip: <{clipsProcessingStack[i]['url']}>...")
-            driveUrl = await dutil_TwitchClip_To_DriveProcessedClip(clipsProcessingStack[i]['url'])
-            await clipsProcessingStack[i]["message"].edit(content=f"Processing Finished! Uploaded to: <{driveUrl}>")
-            await clipsProcessingStack[i]["message"].clear_reactions()
-            del clipsProcessingStack[i]
-        # save url thats in message
-        # download clip using url
-        # move clip download into the input for the processing folder OR send clip path directly to video processing py
-        # add clip to list of 'about to be processed' clips
-        # delete message
-    # run py process clips, make sure output is clear
-    # for each clip in output:
-    # post to YT
-    pass
 
+async def dutil_TwitchClip_To_DriveProcessedClip(twitchUrl, clipName, clipMessageOBJ, ctx, client):
+     
+    clipProcessor = clipProcessingUtils(twitchUrl, clipMessageOBJ, ctx, client, clipName)
 
-async def dutil_TwitchClip_To_DriveProcessedClip(twitchUrl):
-    time.sleep(5) # simulate  
-    return "Exmaple/URL//clip/processing/and/drive/uploading/not/implemeted/yet"
+    # clear input and output directories
+    clipProcessor.clearOutputAndInputFolders()
+
+    # download the clip 
+    await clipProcessor.updateClipMessage("Downloading Clip: ")
+    await clipProcessor.downloadClipFromTwitchUrl()
+
+    # process clip
+    await clipProcessor.updateClipMessage("Rendering Clip (this can take some time): ")
+    clipProcessor.processAllInputNoZoomClips()
+
+    # get processed clip from output dir
+    await clipProcessor.updateClipMessage("Final Touches: ")
+    finalClip = clipProcessor.getAllClipsInOutput()
+
+    # upload clip to google drive
+    driveLink = await clipProcessor.uploadLocalClipToDrive(finalClip)
+    return driveLink
 
 
 def contains_url(inputStr):
